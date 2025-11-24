@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reconocimiento Inicial</title>
+  <link rel="stylesheet" href="/static/css/parpadeo.css">
+</head>
+<body>
+  <main class="container">
+    <h2 class="title">RECONOCIMIENTO INICIAL</h2>
+
+    <div class="video-card">
+      <video id="video" playsinline autoplay muted></video>
+    </div>
+
+    <p class="info">
+      Espera un momento, el sistema está reconociendo tu nivel de fatiga visual inicial,
+      te avisaremos cuando se haya completado el reconocimiento.
+    </p>
+
+    <div class="stats">
+      <div class="stat">
+        <span class="stat-label">Parpadeos</span>
+        <span id="blinkCount" class="stat-value">0</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Microsueños</span>
+        <span id="microCount" class="stat-value">0</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn" class="btn">Iniciar cámara</button>
+      <button id="stopBtn" class="btn btn-ghost" disabled>Detener</button>
+      <a id="continueBtn" class="btn btn-primary" href="/actividades" style="display:none">Empezar actividades</a>
+    </div>
+  </main>
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+  <!-- TensorFlow.js (se usa para operaciones de tensor / suavizado) -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.9.0/dist/tf.min.js"></script>
+
+  <script src="/static/js/parpadeo.js"></script>
+</body>
+</html>

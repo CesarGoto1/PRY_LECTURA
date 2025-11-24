@@ -1,0 +1,131 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Login - Sistema de Fatiga Visual</title>
+  <style>
+    :root{
+      --bg:#0f0f0f;
+      --card:#171717;
+      --accent:#252525;
+      --accent-hover:#000;
+      --text:#d3d3d3;
+      --muted:#9a9a9a;
+      --success:#00c851;
+      --error:#ff4f4f;
+    }
+
+    html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial;background:linear-gradient(180deg,#0b0b0b,#121212);display:flex;align-items:center;justify-content:center;padding:24px;color:var(--text);}
+
+    .form{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      padding:1.6rem;
+      background-color:var(--card);
+      border-radius:25px;
+      transition:.4s ease-in-out;
+      width:360px;
+      box-shadow:0 6px 18px rgba(0,0,0,0.6);
+      border:1px solid rgba(255,255,255,0.03);
+    }
+    .form:hover{transform:scale(1.03);border:1px solid rgba(0,0,0,0.6);}
+
+    #heading{text-align:center;margin:0;color:var(--text);font-size:1.2em;padding-bottom:4px;}
+    .note{font-size:0.85rem;color:var(--muted);text-align:center;margin-bottom:4px;}
+
+    .field{
+      display:flex;
+      align-items:center;
+      gap:.6em;
+      border-radius:25px;
+      padding:.6em .9em;
+      background-color:var(--card);
+      box-shadow:inset 2px 5px 10px rgba(0,0,0,0.6);
+      border:1px solid rgba(255,255,255,0.02);
+    }
+    .input-icon{height:1.2em;width:1.2em;fill:var(--text);opacity:.9}
+    .input-field{background:none;border:none;outline:none;width:100%;color:var(--text);font-size:0.95rem}
+    .small{font-size:0.85rem;color:var(--muted);padding-left:0.6rem}
+
+    .btn{display:flex;justify-content:center;gap:.6rem;margin-top:1.2rem}
+    .button1,.button2{
+      padding:.55em 1.2em;border-radius:8px;border:none;outline:none;cursor:pointer;background-color:var(--accent);color:var(--text);transition:.25s;
+    }
+    .button1:hover{background:var(--accent-hover)}
+    .button2{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+    .button2:hover{background:rgba(255,255,255,0.02)}
+
+    .button3{margin-top:1rem;padding:.5em;border-radius:8px;border:none;background:transparent;color:var(--muted);cursor:pointer}
+
+    #msg{height:18px;text-align:center;font-size:0.92rem}
+    .error{color:var(--error)}
+    .success{color:var(--success)}
+
+    a.link{color:var(--muted);text-decoration:none;font-size:0.9rem;text-align:center;display:block;margin-top:6px}
+  </style>
+</head>
+<body>
+  <form class="form" onsubmit="return false;">
+    <p id="heading">Iniciar sesión</p>
+    <p class="note">Introduce tus credenciales</p>
+
+    <div class="field">
+      <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v.217l-8 4.8-8-4.8V4zM0 6.383V12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6.383l-7.555 4.532a1 1 0 0 1-1.11 0L0 6.383z"/></svg>
+      <input id="correo" class="input-field" type="email" placeholder="correo@ejemplo.com" autocomplete="email">
+    </div>
+
+    <div class="field">
+      <svg class="input-icon" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M8 1a3 3 0 0 0-3 3v2H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-1V4a3 3 0 0 0-3-3z"/></svg>
+      <input id="contrasena" class="input-field" type="password" placeholder="Contraseña" autocomplete="current-password">
+    </div>
+
+    <div id="msg"></div>
+
+    <div class="btn">
+      <button type="button" class="button1" onclick="login()">Entrar</button>
+      <button type="button" class="button2" onclick="location.href='register.html'">Registrarse</button>
+    </div>
+
+    <a class="link" href="#">¿Olvidaste tu contraseña?</a>
+  </form>
+
+  <script>
+    async function login(){
+      const correo = document.getElementById('correo').value.trim();
+      const contrasena = document.getElementById('contrasena').value.trim();
+      const msg = document.getElementById('msg');
+      msg.textContent = ""; msg.className = "";
+
+      if(!correo || !contrasena){
+        msg.textContent = "Todos los campos son obligatorios.";
+        msg.className = "error";
+        return;
+      }
+
+      try{
+        const resp = await fetch("http://localhost:8000/login", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({ correo, contrasena })
+        });
+        const data = await resp.json();
+        if(!resp.ok){
+          msg.textContent = data.detail || "Error en el inicio de sesión";
+          msg.className = "error";
+          return;
+        }
+        if(data.usuario) localStorage.setItem('usuario', JSON.stringify(data.usuario));
+        msg.textContent = "Ingreso exitoso";
+        msg.className = "success";
+        setTimeout(()=> location.href = "index.html", 700);
+      }catch(e){
+        msg.textContent = "Error de conexión con el servidor";
+        msg.className = "error";
+      }
+    }
+  </script>
+</body>
+</html>

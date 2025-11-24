@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Ejercicios de Relajación Visual</title>
+<style>
+    body { font-family: Arial; margin: 0; background: #1f1f1f; color: white; }
+
+    /* NAVBAR */
+    nav {
+        background: #111;
+        padding: 10px 20px;
+        display: flex;
+        gap: 20px;
+        position: sticky;
+        top: 0;
+    }
+    nav a {
+        color: white;
+        text-decoration: none;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    nav a:hover { color: cyan; }
+
+    /* Secciones */
+    .section { display: none; padding: 20px; text-align: center; }
+    canvas { background: #000; border: 1px solid #444; }
+
+    button {
+        margin-top: 20px;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        background: #333;
+        border: 1px solid cyan;
+        color: cyan;
+        border-radius: 6px;
+    }
+</style>
+</head>
+<body>
+
+<nav>
+    <a onclick="showSection('focus')">Cerca / Lejos</a>
+    <a onclick="showSection('bubble')">Sigue la Burbuja</a>
+    <a onclick="showSection('defocus')">Niebla Visual</a>
+    <a onclick="showSection('stars')">Constelaciones</a>
+</nav>
+
+<!-- 1. Focus Shift -->
+<div class="section" id="focus">
+    <h2>Enfoque Cercano / Lejano</h2>
+    <div id="near" style="font-size:60px; opacity:1;">●</div>
+    <div id="far" style="font-size:20px; opacity:0.2; margin-top:40px;">●</div>
+    <button onclick="startFocusShift()">Iniciar ejercicio</button>
+</div>
+
+<!-- 2. Smooth Tracking -->
+<div class="section" id="bubble">
+    <h2>Sigue la Burbuja</h2>
+    <canvas id="canvas1" width="600" height="400"></canvas>
+</div>
+
+<!-- 3. Defocus Puzzle -->
+<div class="section" id="defocus">
+    <h2>Puzzle de Niebla Visual</h2>
+    <img id="defocusImg" src="https://picsum.photos/400"
+         style="filter:blur(8px);transition:1s;border-radius:10px;">
+    <br>
+    <button onclick="toggleFocus()">Enfocar / Desenfocar</button>
+</div>
+
+<!-- 4. Constelaciones -->
+<div class="section" id="stars">
+    <h2>Constelaciones Relajantes</h2>
+    <canvas id="canvas2" width="600" height="400"></canvas>
+</div>
+
+<script>
+/* Mostrar secciones */
+function showSection(id){
+    document.querySelectorAll('.section').forEach(s => s.style.display = "none");
+    document.getElementById(id).style.display = "block";
+}
+showSection('focus'); // mostrar primera sección
+
+/* 1. Enfoque Cercano / Lejano */
+function startFocusShift(){
+    setInterval(()=>{
+        const focus = Math.random() > 0.5 ? "near" : "far";
+        document.getElementById("near").style.opacity = focus === "near" ? 1 : 0.2;
+        document.getElementById("far").style.opacity = focus === "far" ? 1 : 0.2;
+    }, 3000);
+}
+
+/* 2. Smooth Tracking */
+const ctx = document.getElementById("canvas1").getContext("2d");
+let t = 0;
+function drawBubble(){
+    ctx.clearRect(0,0,600,400);
+    const x = 300 + Math.sin(t)*200;
+    const y = 200 + Math.cos(t*0.7)*120;
+
+    ctx.beginPath();
+    ctx.arc(x,y,20,0,Math.PI*2);
+    ctx.fillStyle = "cyan";
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = "cyan";
+    ctx.fill();
+    t += 0.02;
+    requestAnimationFrame(drawBubble);
+}
+drawBubble();
+
+/* 3. Defocus Puzzle */
+let blurred = true;
+function toggleFocus(){
+    blurred = !blurred;
+    document.getElementById("defocusImg").style.filter =
+        blurred ? "blur(8px)" : "blur(0px)";
+}
+
+/* 4. Constelaciones */
+const ctx2 = document.getElementById("canvas2").getContext("2d");
+const points = [
+    [100,100], [500,100], [300,200], [100,300], [500,300]
+];
+let i = 0;
+
+function drawStars(){
+    ctx2.clearRect(0,0,600,400);
+    const [x,y] = points[i];
+
+    ctx2.beginPath();
+    ctx2.arc(x,y,12,0,Math.PI*2);
+    ctx2.fillStyle = "white";
+    ctx2.shadowBlur = 20;
+    ctx2.shadowColor = "cyan";
+    ctx2.fill();
+
+    i = (i+1) % points.length;
+}
+setInterval(drawStars, 1500);
+drawStars();
+</script>
+
+</body>
+</html>
