@@ -36,9 +36,9 @@ def startup():
         db_config = {
             "host": os.getenv("DB_HOST", "127.0.0.1"),
             "port": int(os.getenv("DB_PORT", "5432")),
-            "database": os.getenv("DB_NAME", "PRY_LECTURA"),
+            "database": os.getenv("DB_NAME", "pry_lectura"),
             "user": os.getenv("DB_USER", "postgres"),
-            "password": os.getenv("DB_PASS", "admin"),
+            "password": os.getenv("DB_PASS", "123"),
         }
         app.state.db_pool = pool.SimpleConnectionPool(1, 10, **db_config)
         if not app.state.db_pool:

@@ -1,0 +1,13 @@
+# Ignorar caches de Python
+__pycache__/
+**/__pycache__/
+
+# Archivos compilados
+*.pyc
+*.pyo
+*.pyd
+
+# Entornos virtuales y configuración local
+.env
+.venv/
+venv/

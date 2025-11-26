@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detalle de Sesión - Panel Administrador</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="../../static/css/main.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav class="navbar navbar-global d-flex justify-content-between align-items-center">
+    <div class="d-flex align-items-center">
+        <span class="brand-icon">🛡️</span>
+        <span class="brand-text">Detalle de Sesión</span>
+    </div>
+
+    <div>
+        <a href="index.html" class="btn btn-outline-secondary btn-sm me-2"><i class="fas fa-arrow-left"></i> Volver</a>
+        <button class="btn-logout btn btn-sm btn-outline-danger" onclick="cerrarSesion()">Cerrar sesión</button>
+    </div>
+</nav>
+
+<div class="container mt-4 mb-5">
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Datos</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Nombre:</strong> <span id="datoNombre">Juan Pérez</span></p>
+                    <p><strong>Fecha:</strong> <span id="datoFecha">21/02/2025</span></p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Duración total sesión:</strong> <span id="datoDuracion">3 min</span></p>
+                    <p><strong>Actividades completadas:</strong> <span id="datoActividades">3</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="dashboard-box p-3">
+                <h6 class="fw-bold mb-3">Fatiga Inicial vs Final</h6>
+                <canvas id="detalleGraficoBar" height="160"></canvas>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="dashboard-box p-3">
+                <h6 class="fw-bold mb-3">Métricas Visuales</h6>
+                <canvas id="detalleGraficoRadar" height="160"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-box mt-4 p-3">
+        <h5 class="fw-bold mb-3">Resumen de Sesión</h5>
+
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle text-center mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Inicial</th>
+                        <th>Final</th>
+                        <th>Cambio</th>
+                    </tr>
+                </thead>
+                <tbody id="tablaResumen">
+                    <tr>
+                        <td>EAR</td>
+                        <td id="earInicial">0.21</td>
+                        <td id="earFinal">0.28</td>
+                        <td id="earCambio">+33%</td>
+                    </tr>
+                    <tr>
+                        <td>Parpadeos/min</td>
+                        <td id="parpInicial">9</td>
+                        <td id="parpFinal">15</td>
+                        <td id="parpCambio">+67%</td>
+                    </tr>
+                    <tr>
+                        <td>Mirada desviada (%)</td>
+                        <td id="miradaInicial">25%</td>
+                        <td id="miradaFinal">12%</td>
+                        <td id="miradaCambio">-52%</td>
+                    </tr>
+                    <tr>
+                        <td>Cierre prolongado (s)</td>
+                        <td id="cierreInicial">10</td>
+                        <td id="cierreFinal">4</td>
+                        <td id="cierreCambio">-60%</td>
+                    </tr>
+                    <tr>
+                        <td>Reducción Global de Fatiga</td>
+                        <td id="redInicial">72%</td>
+                        <td id="redFinal">45%</td>
+                        <td id="redCambio" class="text-success">-37%</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<footer class="mt-auto text-center py-3" style="background:#ffffff55;">
+    © 2025 - Sistema de Monitoreo de Fatiga Visual
+</footer>
+
+<script src="../../static/js/session.js"></script>
+<script src="../../static/js/admin.js"></script>
+<script> protegerRuta("admin"); </script>
+
+<script>
+// Datos de ejemplo — reemplazar por datos reales desde el servidor si aplica
+const datosSesion = {
+  nombre: "Juan Pérez",
+  fecha: "21/02/2025",
+  duracion: "3 min",
+  actividades: 3,
+  fatiga: { inicial: 72, final: 45 },
+  radarInicial: [0.21,9,25,10],
+  radarFinal: [0.28,15,12,4]
+};
+
+// Poblar información básica
+document.getElementById('datoNombre').textContent = datosSesion.nombre;
+document.getElementById('datoFecha').textContent = datosSesion.fecha;
+document.getElementById('datoDuracion').textContent = datosSesion.duracion;
+document.getElementById('datoActividades').textContent = datosSesion.actividades;
+
+document.getElementById('redInicial').textContent = datosSesion.fatiga.inicial + '%';
+document.getElementById('redFinal').textContent = datosSesion.fatiga.final + '%';
+const cambio = datosSesion.fatiga.final - datosSesion.fatiga.inicial;
+document.getElementById('redCambio').textContent = (cambio>0?'+':'') + cambio + '%';
+if (cambio < 0) document.getElementById('redCambio').classList.add('text-success');
+
+// Gráfico de barras (Fatiga)
+new Chart(document.getElementById('detalleGraficoBar'), {
+  type: 'bar',
+  data: {
+    labels: ['Inicial', 'Final'],
+    datasets: [{
+      label: 'Fatiga (%)',
+      data: [datosSesion.fatiga.inicial, datosSesion.fatiga.final],
+      backgroundColor: ['#FFC300','#4DA3FF']
+    }]
+  },
+  options: { responsive:true, plugins:{ legend:{display:false} } }
+});
+
+// Gráfico radar (Métricas visuales)
+new Chart(document.getElementById('detalleGraficoRadar'), {
+  type: 'radar',
+  data: {
+    labels: ['EAR', 'Parpadeos/min', 'Mirada desviada', 'Cierre prolongado'],
+    datasets: [
+      { label: 'Inicial', data: datosSesion.radarInicial, borderColor:'#FF9800', backgroundColor:'rgba(255,152,0,0.1)', borderWidth:2 },
+      { label: 'Final', data: datosSesion.radarFinal, borderColor:'#4DA3FF', backgroundColor:'rgba(77,163,255,0.08)', borderWidth:2 }
+    ]
+  },
+  options: { responsive:true }
+});
+</script>
+
+</body>
+</html>
