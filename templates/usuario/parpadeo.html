@@ -29,6 +29,12 @@
         <span id="microCount" class="stat-value">0</span>
       </div>
     </div>
+    <div class="gaze-container" style="position:relative; width:640px; max-width:100%; margin:12px auto 0;">
+      <canvas id="overlay" width="640" height="480" style="position:absolute; left:0; top:0; pointer-events:none;"></canvas>
+      <div id="gazeText" style="position:absolute; right:8px; bottom:8px; background:rgba(0,0,0,0.5); color:#fff; padding:6px 10px; border-radius:6px; font-weight:600;">
+        Mirada: centro
+      </div>
+    </div>
 
     <div class="controls">
       <button id="startBtn" class="btn">Iniciar cámara</button>
