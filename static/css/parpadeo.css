@@ -1,26 +1,213 @@
-:root{
-  --bg:#0f0f10;
-  --panel:#111214;
-  --muted:#9aa0a6;
-  --accent:#2f8f6c;
-  --card:#1a1a1b;
-  --white:#f7f7f7;
-}
+/* --- VARIABLES DE TU LOGIN --- */
+    :root {
+      --bg: #0f0f0f;
+      --card: #171717;
+      --accent: #252525;
+      --accent-hover: #000;
+      --text: #d3d3d3;
+      --muted: #9a9a9a;
+      --success: #00c851;
+      --error: #ff4f4f;
+      --border: rgba(255, 255, 255, 0.05);
+    }
 
-*{box-sizing:border-box}
-html,body{height:100%;margin:0;font-family:Inter,Arial, sans-serif;background:var(--bg);color:var(--white)}
-.container{max-width:720px;margin:40px auto;text-align:center;padding:24px}
-.title{letter-spacing:2px;color:var(--muted);font-size:14px;margin-bottom:18px}
-.video-card{width:200px;height:200px;margin:0 auto;border-radius:12px;background:var(--card);display:flex;align-items:center;justify-content:center;overflow:hidden;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
-video#video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1); /* espejo */}
-.info{color:var(--muted);font-size:13px;margin:18px 0;max-width:640px}
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Inter, system-ui, Segoe UI, Arial, sans-serif;
+      background: linear-gradient(180deg, #0b0b0b, #121212);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden; /* Evita scroll innecesario */
+    }
 
-.stats{display:flex;gap:18px;justify-content:center;margin-bottom:18px}
-.stat{background:rgba(255,255,255,0.03);padding:10px 14px;border-radius:8px;min-width:120px}
-.stat-label{display:block;color:var(--muted);font-size:12px}
-.stat-value{display:block;font-size:20px;font-weight:700;margin-top:6px;color:var(--white)}
+    /* Layout Principal */
+    .main-container {
+      width: 100%;
+      max-width: 800px;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      align-items: center;
+    }
 
-.controls{display:flex;gap:12px;justify-content:center;align-items:center;margin-top:8px}
-.btn{background:var(--panel);border:1px solid rgba(255,255,255,0.06);color:var(--white);padding:8px 12px;border-radius:6px;cursor:pointer}
-.btn-primary{background:var(--accent);border:none}
-.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+    h2.title {
+      margin: 0;
+      font-size: 1.5rem;
+      color: var(--text);
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+
+    /* --- TARJETA DE VIDEO (El cambio importante) --- */
+    .video-card {
+      width: 100%;
+      height: 80%;
+      max-width: 600px; /* Ancho máximo para que no se pixelee */
+      aspect-ratio: 4 / 3; /* Fuerza la proporción de webcam estándar */
+      background-color: var(--card);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* El canvas llena la tarjeta sin deformarse */
+    canvas#output_canvas {
+      width: 100%;
+      height: 80%;
+      object-fit: cover;
+      transform: scaleX(-1); /* Efecto espejo */
+    }
+
+    /* Overlay de Estado (La etiqueta flotante) */
+    #statusOverlay {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      color: var(--success);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .info {
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+      max-width: 600px;
+      margin: 0;
+    }
+
+    /* --- ESTADÍSTICAS --- */
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    .stat {
+      background-color: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: 0.3s;
+    }
+
+    .stat:hover {
+      border-color: rgba(255,255,255,0.15);
+      transform: translateY(-2px);
+    }
+
+    .stat-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    /* --- BOTONES (Estilo Login) --- */
+    .controls {
+      display: flex;
+      gap: 15px;
+      margin-top: 10px;
+    }
+
+    .btn {
+      padding: 0.7em 1.5em;
+      border-radius: 8px;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: 0.25s;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-primary {
+      background-color: var(--text); /* Botón blanco/gris claro para contraste */
+      color: #000;
+      font-weight: bold;
+    }
+    .btn-primary:hover {
+      background-color: white;
+      box-shadow: 0 0 15px rgba(255,255,255,0.2);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-ghost:hover:not(:disabled) {
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* --- MODAL --- */
+    .modal-overlay {
+      display: none;
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(5px);
+      z-index: 999;
+      justify-content: center; align-items: center;
+    }
+    
+    .modal-content {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 30px;
+      border-radius: 20px;
+      max-width: 400px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+    }
+    
+    .modal-content select {
+      width: 100%;
+      padding: 12px;
+      margin: 20px 0;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      outline: none;
+    }

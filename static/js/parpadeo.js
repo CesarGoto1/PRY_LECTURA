@@ -1,432 +1,378 @@
-// ...existing code...
+// ==========================================
+// CONFIGURACIÓN Y REFERENCIAS DOM
+// ==========================================
 const videoElement = document.getElementById('video');
+const canvasElement = document.getElementById('output_canvas');
+const canvasCtx = canvasElement.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const continueBtn = document.getElementById('continueBtn');
+const statusOverlay = document.getElementById('statusOverlay');
 
+// Stats Elements
 const blinkCountEl = document.getElementById('blinkCount');
-const microCountEl = document.getElementById('microCount');
+const yawnCountEl = document.getElementById('yawnCount');
+const timerEl = document.getElementById('timerCount');
 
-// elementos añadidos para gaze
-const overlay = document.getElementById('overlay');
-const overlayCtx = overlay ? overlay.getContext('2d') : null;
-const gazeText = document.getElementById('gazeText');
-
-// opcionales en HTML: sliders para ajustar preprocesado y un hint element
-const brightnessRange = document.getElementById('brightnessRange'); // opcional
-const contrastRange = document.getElementById('contrastRange'); // opcional
-const saturationRange = document.getElementById('saturationRange'); // opcional
-const lightHintEl = document.getElementById('lightHint'); // opcional (overlay texto)
-
-let camera = null;
+// ==========================================
+// VARIABLES GLOBALES DEL SISTEMA
+// ==========================================
+let appState = 'IDLE'; 
 let running = false;
+let camera = null;
+let startTime = 0;
+let lastFrameTime = 0;
 
-let conteo_parpadeos = 0;
-let conteo_microsuenos = 0;
-let parpadeo = false;
-let inicio = 0;
-let final = 0;
+// Constantes de Tiempo
+const CALIBRATION_DURATION = 10;
+const MEASUREMENT_DURATION = 60;
 
-// buffer de aperturas (valor between 0..1) para suavizar con tfjs
-const bufferSize = 15;
-const aperturaBuffer = [];
-const minBufferFill = 3;
+// Variables de Calibración
+let calibrationEARs = []; 
+let calibrationMARs = []; // NUEVO: Array para calibrar boca
+let baselineEAR = 0; 
+let baselineMAR = 0;      // NUEVO: Boca en reposo
 
-// kernel para moving average (se usa con tfjs si está disponible)
-let kernel = null;
-if (typeof tf !== 'undefined') {
-  kernel = tf.tensor1d(new Array(bufferSize).fill(1 / bufferSize), 'float32');
-}
+// Umbrales Dinámicos
+let thresClose = 0; 
+let thresOpen = 0;
+let thresYawn = 0.5;      // NUEVO: Se ajustará según tu boca
 
-function actualizarUI() {
-  if (blinkCountEl) blinkCountEl.textContent = conteo_parpadeos;
-  if (microCountEl) microCountEl.textContent = conteo_microsuenos;
-}
+// Variables de Medición
+let blinkCounter = 0;         
+let incompleteBlinks = 0;     
+let accumulatedClosureTime = 0; 
+let measureFramesTotal = 0;
+let measureFramesClosed = 0;
 
-// calcula distancia entre dos landmarks (coord normalizadas) en pixeles relativos
+// Variables Lógicas (Parpadeo)
+let isBlinking = false;
+let minEarInBlink = 1.0; 
+
+// Variables Bostezos
+let yawnCounter = 0;
+let isYawning = false;
+let yawnStartTime = 0;
+const MIN_YAWN_TIME = 1.5; // Duración mínima para contar como bostezo
+
+// Variables Velocidad Ocular
+let prevIrisPos = null;
+let totalIrisDistance = 0;
+let frameCount = 0;
+const LEFT_IRIS_CENTER = 468;
+
+// ==========================================
+// FUNCIONES AUXILIARES MATEMÁTICAS
+// ==========================================
+
 function distanciaPx(p1, p2, w, h) {
-  const dx = (p1.x - p2.x) * w;
-  const dy = (p1.y - p2.y) * h;
-  return Math.hypot(dx, dy);
+    const dx = (p1.x - p2.x) * w;
+    const dy = (p1.y - p2.y) * h;
+    return Math.hypot(dx, dy);
 }
+
+function calcularEAR(lm, w, h) {
+    const l_v1 = distanciaPx(lm[160], lm[144], w, h);
+    const l_v2 = distanciaPx(lm[158], lm[153], w, h);
+    const l_h  = distanciaPx(lm[33],  lm[133], w, h);
+    const ear_l = (l_v1 + l_v2) / (2.0 * l_h);
+
+    const r_v1 = distanciaPx(lm[385], lm[380], w, h);
+    const r_v2 = distanciaPx(lm[387], lm[373], w, h);
+    const r_h  = distanciaPx(lm[362], lm[263], w, h);
+    const ear_r = (r_v1 + r_v2) / (2.0 * r_h);
+
+    return (ear_l + ear_r) / 2.0;
+}
+
+// MEJORA: Fórmula MAR más robusta usando 3 líneas verticales
+function calcularMAR(lm, w, h) {
+    // 1. Línea Vertical Central (Labio sup e inf interiores)
+    const v1 = distanciaPx(lm[13], lm[14], w, h);
+    // 2. Línea Vertical Izquierda (Puntos intermedios)
+    const v2 = distanciaPx(lm[81], lm[178], w, h);
+    // 3. Línea Vertical Derecha (Puntos intermedios)
+    const v3 = distanciaPx(lm[311], lm[402], w, h);
+    
+    // Promedio de apertura vertical
+    const vertical = (v1 + v2 + v3) / 3.0;
+
+    // Distancia Horizontal (Comisuras)
+    const horizontal = distanciaPx(lm[61], lm[291], w, h);
+
+    return horizontal > 0 ? vertical / horizontal : 0;
+}
+
+// ==========================================
+// LÓGICA PRINCIPAL
+// ==========================================
 
 const faceMesh = new FaceMesh({
-  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
 });
+
 faceMesh.setOptions({
-  maxNumFaces: 1,
-  refineLandmarks: true,
-  minDetectionConfidence: 0.85, // más estricto para mayor precisión
-  minTrackingConfidence: 0.85
+    maxNumFaces: 1,
+    refineLandmarks: true,
+    minDetectionConfidence: 0.7,
+    minTrackingConfidence: 0.7
 });
-
-// PREPROCESADO: canvas intermedio con filtros para mejorar iluminación
-const preCanvas = document.createElement('canvas');
-const preCtx = preCanvas.getContext('2d');
-preCanvas.width = 640;
-preCanvas.height = 480;
-
-// asegurar overlay tamaño si existe
-if (overlay) {
-  overlay.width = preCanvas.width;
-  overlay.height = preCanvas.height;
-}
-
-// parámetros por defecto (se pueden ajustar vía sliders si existen)
-let pre_brightness = 110; // % (100 = sin cambio)
-let pre_contrast = 120;   // %
-let pre_saturation = 100; // %
-let pre_gamma = 1.0;      // no usado por defecto
-
-// si existen sliders en HTML, sincronizarlos
-function initSliders() {
-  if (brightnessRange) {
-    brightnessRange.value = pre_brightness;
-    brightnessRange.addEventListener('input', (e) => pre_brightness = Number(e.target.value));
-  }
-  if (contrastRange) {
-    contrastRange.value = pre_contrast;
-    contrastRange.addEventListener('input', (e) => pre_contrast = Number(e.target.value));
-  }
-  if (saturationRange) {
-    saturationRange.value = pre_saturation;
-    saturationRange.addEventListener('input', (e) => pre_saturation = Number(e.target.value));
-  }
-}
-initSliders();
-
-function showLightHint(on) {
-  if (lightHintEl) {
-    lightHintEl.style.display = on ? 'block' : 'none';
-    return;
-  }
-  if (on) console.warn('Iluminación baja: coloca más luz frontal.');
-}
-
-// promedio de luminancia (muestreo)
-function averageLuminanceFromCanvas(ctx, w, h, step = 12) {
-  try {
-    const img = ctx.getImageData(0, 0, w, h).data;
-    let sum = 0, count = 0;
-    for (let i = 0; i < img.length; i += 4 * step) {
-      sum += 0.2126 * img[i] + 0.7152 * img[i+1] + 0.0722 * img[i+2];
-      count++;
-    }
-    return sum / Math.max(1, count);
-  } catch (e) {
-    return 255;
-  }
-}
-
-// Mejoras para precisión de gaze
-// - normalización por ancho del ojo (estable frente a zoom)
-// - calibración automática (primeras frames) para quitar bias
-// - suavizado EMA (más reactivo y estable)
-const gazeEMAAlpha = 0.45; // mayor = más reactivo
-let smoothGaze = { x: 0, y: 0 };
-let gazeInitialized = false;
-
-// calibración automática
-const calibFrames = 60;
-let calibCount = 0;
-let calibSum = { x: 0, y: 0 };
-let calibrated = false;
-let baseline = { x: 0, y: 0 }; // bias a restar (en unidades normalizadas por eye width)
-let eyeScale = 1.0; // factor basado en eye width
-
-// indices robustos
-const leftIrisIdx = [468, 469, 470, 471];
-const rightIrisIdx = [473, 474, 475, 476];
-const leftEyeCorners = [33, 133];   // outer, inner
-const rightEyeCorners = [362, 263]; // outer, inner
-const leftEyeContour = [33, 133, 159, 145];
-const rightEyeContour = [362, 263, 386, 374];
-
-// helper para promediar puntos
-const avgPointFromLM = (lm, idxs) => {
-  const sum = idxs.reduce((acc, i) => {
-    const p = lm[i] || { x: 0, y: 0 };
-    return { x: acc.x + p.x, y: acc.y + p.y };
-  }, { x: 0, y: 0 });
-  return { x: sum.x / idxs.length, y: sum.y / idxs.length };
-};
-
-const gazeBufferSize = 6; // buffer pequeño para fallback
-const gazeBuffer = [];
-
-// thresholds relativos (se usan sobre valor normalizado por eye width)
-const BASE_TH_X = 0.08;
-const BASE_TH_Y = 0.09;
 
 faceMesh.onResults((results) => {
-  if (!running) return;
-  const w = preCanvas.width;
-  const h = preCanvas.height;
+    if (!running) return;
 
-  // limpiar overlay cada frame
-  if (overlayCtx) {
-    overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
-  }
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-  if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
-    const lm = results.multiFaceLandmarks[0];
+    const now = performance.now() / 1000;
+    const deltaTime = now - lastFrameTime;
+    lastFrameTime = now;
 
-    // PARPADEO (igual lógica pero manteniendo robustez)
-    const L1 = lm[145], L2 = lm[159];
-    const R1 = lm[374], R2 = lm[386];
-    const ref = distanciaPx(lm[33], lm[263], w, h) || 1;
-    const aperturaIzq = distanciaPx(L1, L2, w, h) / ref;
-    const aperturaDer = distanciaPx(R1, R2, w, h) / ref;
-    const aperturaProm = (aperturaIzq + aperturaDer) / 2;
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+        const lm = results.multiFaceLandmarks[0];
+        const w = canvasElement.width;
+        const h = canvasElement.height;
 
-    aperturaBuffer.push(aperturaProm);
-    if (aperturaBuffer.length > bufferSize) aperturaBuffer.shift();
+        drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, {color: '#C0C0C030', lineWidth: 1});
 
-    let aperturaSuav = aperturaProm;
-    if (kernel && aperturaBuffer.length >= minBufferFill) {
-      tf.tidy(() => {
-        const padded = (new Array(bufferSize - aperturaBuffer.length).fill(0)).concat(aperturaBuffer);
-        const arr = tf.tensor1d(padded, 'float32');
-        const reshaped = arr.reshape([1, bufferSize, 1]);
-        const k = kernel.reshape([bufferSize, 1, 1]);
-        const conv = tf.conv1d(reshaped, k, 1, 'valid');
-        aperturaSuav = conv.reshape([1]).arraySync()[0];
-      });
-    } else if (!kernel && aperturaBuffer.length > 0) {
-      aperturaSuav = aperturaBuffer.reduce((a, b) => a + b, 0) / aperturaBuffer.length;
+        const currentEAR = calcularEAR(lm, w, h);
+        const currentMAR = calcularMAR(lm, w, h);
+        const currentIrisPos = { x: lm[LEFT_IRIS_CENTER].x, y: lm[LEFT_IRIS_CENTER].y };
+
+        if (appState === 'IDLE') {
+            statusOverlay.textContent = "Listo. Presiona 'Iniciar Test'";
+            statusOverlay.style.color = "white";
+        
+        } else if (appState === 'CALIBRATING') {
+            const elapsed = now - startTime;
+            statusOverlay.textContent = `CALIBRANDO (${Math.ceil(CALIBRATION_DURATION - elapsed)}s) - Mira naturalmente`;
+            statusOverlay.style.color = "yellow";
+            
+            calibrationEARs.push(currentEAR);
+            calibrationMARs.push(currentMAR); // Guardamos datos de boca
+
+            if (elapsed >= CALIBRATION_DURATION) {
+                // 1. Calibrar Ojos
+                const sumEar = calibrationEARs.reduce((a, b) => a + b, 0);
+                baselineEAR = sumEar / calibrationEARs.length;
+                
+                thresClose = baselineEAR * 0.50; 
+                thresOpen = baselineEAR * 0.80; 
+
+                // 2. Calibrar Boca (NUEVO)
+                const sumMar = calibrationMARs.reduce((a, b) => a + b, 0);
+                baselineMAR = sumMar / calibrationMARs.length;
+                
+                // El umbral es tu boca en reposo + 0.35 de apertura extra.
+                // Ponemos un mínimo de 0.5 para evitar falsos positivos al hablar.
+                thresYawn = Math.max(0.5, baselineMAR + 0.35);
+
+                console.log(`Calibración Completa. 
+                    EAR Base: ${baselineEAR.toFixed(3)} 
+                    MAR Base: ${baselineMAR.toFixed(3)} 
+                    Umbral Bostezo: ${thresYawn.toFixed(3)}`);
+                
+                appState = 'MEASURING';
+                startTime = now;
+                
+                // Reset contadores
+                blinkCounter = 0; incompleteBlinks = 0; yawnCounter = 0;
+                accumulatedClosureTime = 0; measureFramesTotal = 0; measureFramesClosed = 0;
+                totalIrisDistance = 0; frameCount = 0;
+            }
+
+        } else if (appState === 'MEASURING') {
+            const elapsed = now - startTime;
+            const remaining = Math.ceil(MEASUREMENT_DURATION - elapsed);
+            statusOverlay.textContent = `MIDIENDO... ${remaining}s`;
+            timerEl.textContent = `${remaining}s`;
+
+            measureFramesTotal++;
+
+            // --- A. DETECCIÓN PARPADEO ---
+            if (currentEAR < thresClose) {
+                if (!isBlinking) {
+                    isBlinking = true;
+                    minEarInBlink = currentEAR;
+                } else {
+                    if (currentEAR < minEarInBlink) minEarInBlink = currentEAR;
+                }
+                measureFramesClosed++;
+                accumulatedClosureTime += deltaTime;
+            } 
+            else if (currentEAR > thresOpen && isBlinking) {
+                blinkCounter++;
+                blinkCountEl.textContent = blinkCounter;
+                if (minEarInBlink > (thresClose * 0.8)) {
+                    incompleteBlinks++;
+                }
+                isBlinking = false;
+            }
+
+            // --- B. DETECCIÓN DE BOSTEZOS (MEJORADA) ---
+            // Usamos el umbral dinámico 'thresYawn' calculado en calibración
+            if (currentMAR > thresYawn) {
+                if (!isYawning) {
+                    isYawning = true;
+                    yawnStartTime = now;
+                    // Visual feedback opcional en consola
+                    console.log("Inicio posible bostezo...");
+                }
+            } else {
+                if (isYawning) {
+                    // Si terminó el bostezo, verificamos duración
+                    const yawnDuration = now - yawnStartTime;
+                    if (yawnDuration > MIN_YAWN_TIME) {
+                        yawnCounter++;
+                        yawnCountEl.textContent = yawnCounter;
+                        console.log("Bostezo confirmado. Duración:", yawnDuration.toFixed(2));
+                    }
+                    isYawning = false;
+                }
+            }
+
+            // --- C. VELOCIDAD OCULAR ---
+            if (prevIrisPos) {
+                const dist = Math.hypot(currentIrisPos.x - prevIrisPos.x, currentIrisPos.y - prevIrisPos.y);
+                totalIrisDistance += dist;
+                frameCount++;
+            }
+            prevIrisPos = currentIrisPos;
+
+            // Finalizar
+            if (elapsed >= MEASUREMENT_DURATION) {
+                appState = 'FINISHED';
+                stopCamera();
+                mostrarModalSubjetivo();
+            }
+        }
     }
-
-    const threshold = 0.03;
-    if (aperturaSuav <= threshold && !parpadeo) {
-      conteo_parpadeos += 1;
-      parpadeo = true;
-      inicio = performance.now() / 1000.0;
-      actualizarUI();
-    } else if (aperturaSuav > threshold && parpadeo) {
-      parpadeo = false;
-      final = performance.now() / 1000.0;
-      const tiempo = Math.round((final - inicio) * 100) / 100;
-      if (tiempo >= 3) {
-        conteo_microsuenos += 1;
-        actualizarUI();
-      }
-      inicio = 0;
-      final = 0;
-    }
-
-    // GAZE TRACKING mejorado
-    const leftIris = avgPointFromLM(lm, leftIrisIdx);
-    const rightIris = avgPointFromLM(lm, rightIrisIdx);
-
-    // centros del ojo (contornos)
-    const leftEyeCenter = avgPointFromLM(lm, leftEyeContour);
-    const rightEyeCenter = avgPointFromLM(lm, rightEyeContour);
-
-    // ancho del ojo en pixeles (para normalizar)
-    const leftEyeWidthPx = distanciaPx(lm[leftEyeCorners[0]], lm[leftEyeCorners[1]], w, h) || 1;
-    const rightEyeWidthPx = distanciaPx(lm[rightEyeCorners[0]], lm[rightEyeCorners[1]], w, h) || 1;
-    const eyeWidthPx = (leftEyeWidthPx + rightEyeWidthPx) / 2;
-
-    // convertir diferencia iris-centro a pixeles y normalizar por eyeWidthPx -> unidad estable
-    const dxLeftPx = (leftIris.x - leftEyeCenter.x) * w;
-    const dyLeftPx = (leftIris.y - leftEyeCenter.y) * h;
-    const dxRightPx = (rightIris.x - rightEyeCenter.x) * w;
-    const dyRightPx = (rightIris.y - rightEyeCenter.y) * h;
-
-    const dxPx = (dxLeftPx + dxRightPx) / 2;
-    const dyPx = (dyLeftPx + dyRightPx) / 2;
-
-    const ndx = dxPx / eyeWidthPx; // normalizado relativo al ancho del ojo
-    const ndy = dyPx / eyeWidthPx; // usar eyeWidth para mantener escala similar en x/y
-
-    // calibración automática durante primeros frames
-    if (!calibrated) {
-      calibSum.x += ndx;
-      calibSum.y += ndy;
-      calibCount++;
-      // estimar escala basada en eyeWidth (si la cámara está muy cerca/alejada)
-      eyeScale = Math.max(0.5, Math.min(2.5, eyeWidthPx / 40)); // heurística
-      if (calibCount >= calibFrames) {
-        baseline.x = calibSum.x / calibCount;
-        baseline.y = calibSum.y / calibCount;
-        calibrated = true;
-        console.info('Calibración completada', baseline, 'eyeScale', eyeScale);
-      } else if (calibCount % 15 === 0) {
-        // feedback al usuario opcional
-        if (gazeText) gazeText.textContent = `Calibrando... ${Math.round((calibCount / calibFrames) * 100)}%`;
-      }
-    }
-
-    // aplicar baseline y escalar
-    const adjX = ndx - (calibrated ? baseline.x : 0);
-    const adjY = ndy - (calibrated ? baseline.y : 0);
-
-    // suavizado EMA
-    if (!gazeInitialized) {
-      smoothGaze.x = adjX;
-      smoothGaze.y = adjY;
-      gazeInitialized = true;
-    } else {
-      smoothGaze.x = gazeEMAAlpha * adjX + (1 - gazeEMAAlpha) * smoothGaze.x;
-      smoothGaze.y = gazeEMAAlpha * adjY + (1 - gazeEMAAlpha) * smoothGaze.y;
-    }
-
-    // Fallback buffer adicional (por si hay frames perdidos)
-    gazeBuffer.push({ x: smoothGaze.x, y: smoothGaze.y });
-    if (gazeBuffer.length > gazeBufferSize) gazeBuffer.shift();
-    const avgGB = gazeBuffer.reduce((a, b) => ({ x: a.x + b.x, y: a.y + b.y }), { x: 0, y: 0 });
-    avgGB.x /= gazeBuffer.length;
-    avgGB.y /= gazeBuffer.length;
-
-    // umbrales adaptativos según eyeScale
-    const TH_X = BASE_TH_X / eyeScale;
-    const TH_Y = BASE_TH_Y / eyeScale;
-
-    let horiz = 'centro';
-    if (avgGB.x > TH_X) horiz = 'derecha';
-    else if (avgGB.x < -TH_X) horiz = 'izquierda';
-
-    let vert = '';
-    if (avgGB.y > TH_Y) vert = ' abajo';
-    else if (avgGB.y < -TH_Y) vert = ' arriba';
-
-    if (gazeText) gazeText.textContent = calibrated ? `Mirada: ${horiz}${vert}` : `Calibrando...`;
-
-    // dibujar indicadores en overlay (iris y vectores)
-    if (overlayCtx) {
-      const lx = leftIris.x * overlay.width;
-      const ly = leftIris.y * overlay.height;
-      const rx = rightIris.x * overlay.width;
-      const ry = rightIris.y * overlay.height;
-      const lcx = leftEyeCenter.x * overlay.width;
-      const lcy = leftEyeCenter.y * overlay.height;
-      const rcx = rightEyeCenter.x * overlay.width;
-      const rcy = rightEyeCenter.y * overlay.height;
-
-      overlayCtx.lineWidth = 2;
-      // iris
-      overlayCtx.strokeStyle = 'rgba(0,200,0,0.95)';
-      overlayCtx.beginPath();
-      overlayCtx.arc(lx, ly, 6, 0, Math.PI * 2);
-      overlayCtx.stroke();
-      overlayCtx.beginPath();
-      overlayCtx.arc(rx, ry, 6, 0, Math.PI * 2);
-      overlayCtx.stroke();
-
-      // lineas centro ojo -> iris
-      overlayCtx.strokeStyle = 'rgba(255,165,0,0.95)';
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(lcx, lcy);
-      overlayCtx.lineTo(lx, ly);
-      overlayCtx.stroke();
-      overlayCtx.beginPath();
-      overlayCtx.moveTo(rcx, rcy);
-      overlayCtx.lineTo(rx, ry);
-      overlayCtx.stroke();
-
-      // punto estimado de fijación: mapear avgGB a área del canvas (más controlado)
-      // factor de visualización: multiplica el desplazamiento normalizado
-      const visFactor = 4.5 * eyeScale;
-      const fixX = overlay.width * (0.5 + avgGB.x * visFactor);
-      const fixY = overlay.height * (0.5 + avgGB.y * visFactor);
-      overlayCtx.fillStyle = 'rgba(0,120,255,0.95)';
-      overlayCtx.beginPath();
-      overlayCtx.arc(fixX, fixY, 8, 0, Math.PI * 2);
-      overlayCtx.fill();
-
-      // dibujar caja de ojo (para debugging)
-      overlayCtx.strokeStyle = 'rgba(255,255,255,0.25)';
-      overlayCtx.beginPath();
-      overlayCtx.rect((lcx - leftEyeWidthPx / 2), (lcy - leftEyeWidthPx / 4), leftEyeWidthPx, leftEyeWidthPx / 2);
-      overlayCtx.stroke();
-    }
-  } else {
-    // sin cara: limpiar overlay y texto
-    if (overlayCtx) overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
-    if (gazeText) gazeText.textContent = 'Mirada: no detectada';
-  }
+    canvasCtx.restore();
 });
 
-// Cámara usando Camera Utils de MediaPipe con preprocesado
+// ==========================================
+// GESTIÓN DE CÁMARA
+// ==========================================
+
 function startCamera() {
-  if (camera) return;
-  camera = new Camera(videoElement, {
-    onFrame: async () => {
-      // dibujar video en canvas con filtros CSS
-      preCtx.filter = `brightness(${pre_brightness}%) contrast(${pre_contrast}%) saturate(${pre_saturation}%)`;
-      preCtx.drawImage(videoElement, 0, 0, preCanvas.width, preCanvas.height);
-
-      // comprobar iluminación promedio y avisar si está muy baja
-      const avg = averageLuminanceFromCanvas(preCtx, preCanvas.width, preCanvas.height, 12);
-      showLightHint(avg < 40);
-
-      // enviar canvas preprocesado a FaceMesh
-      await faceMesh.send({ image: preCanvas });
-    },
-    width: preCanvas.width,
-    height: preCanvas.height
-  });
-  awaitStartCamera();
-}
-
-async function awaitStartCamera() {
-  try {
-    await camera.start();
-    running = true;
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    // establecer ruta absoluta coherente con el backend (templates)
-    if (continueBtn) {
-      continueBtn.style.display = 'inline-block';
-      // si el href está vacío o relativo, forzar ruta a /actividades
-      try {
-        const currentHref = continueBtn.getAttribute('href') || '';
-        if (!currentHref.startsWith('/')) {
-          continueBtn.setAttribute('href', '/actividades');
-        }
-      } catch (e) {
-        continueBtn.setAttribute('href', '/actividades');
-      }
+    if (!camera) {
+        camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await faceMesh.send({image: videoElement});
+            },
+            width: 640,
+            height: 480
+        });
     }
-  } catch (e) {
-    console.error('Error al iniciar cámara:', e);
-    alert('No se pudo iniciar la cámara: ' + (e.message || e));
-  }
+    camera.start().then(() => {
+        running = true;
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        appState = 'CALIBRATING';
+        startTime = performance.now() / 1000;
+        calibrationEARs = [];
+        calibrationMARs = []; // Reset array
+    });
 }
 
 function stopCamera() {
-  if (!camera) return;
-  camera.stop();
-  camera = null;
-  running = false;
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
+    running = false;
+    if (camera) camera.stop();
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+    statusOverlay.textContent = "Test Finalizado";
+    statusOverlay.style.color = "white";
 }
 
-startBtn.addEventListener('click', async () => {
-  try {
-    await navigator.mediaDevices.getUserMedia({ video: true });
-    startCamera();
-  } catch (e) {
-    alert('No se pudo acceder a la cámara: ' + (e.message || e));
-  }
-});
+startBtn.addEventListener('click', startCamera);
+stopBtn.addEventListener('click', stopCamera);
 
-stopBtn.addEventListener('click', () => {
-  stopCamera();
-});
+// ==========================================
+// ENVÍO DE RESULTADOS
+// ==========================================
 
-// actualizar ruta absoluta al pulsar (fallback si alguien modifica el href)
-if (continueBtn) {
-  continueBtn.addEventListener('click', (e) => {
-    const href = continueBtn.getAttribute('href') || '';
-    if (!href.startsWith('/')) {
-      e.preventDefault();
-      window.location.href = '/actividades';
+function mostrarModalSubjetivo() {
+    const modal = document.getElementById('subjectiveModal');
+    if(modal) modal.style.display = 'flex';
+}
+
+window.guardarYContinuar = async function() {
+    const kssValue = document.getElementById('kssSelect').value;
+    
+    const SEBR = blinkCounter;
+    const PERCLOS = measureFramesTotal > 0 ? (measureFramesClosed / measureFramesTotal) * 100 : 0;
+    const PctIncompletos = blinkCounter > 0 ? (incompleteBlinks / blinkCounter) * 100 : 0;
+    const avgVelocity = frameCount > 0 ? (totalIrisDistance / frameCount) * 100 : 0;
+
+    let esFatiga = false;
+    let razones = [];
+
+    if (SEBR <= 5) { esFatiga = true; razones.push("SEBR bajo"); }
+    if (PERCLOS >= 6) { esFatiga = true; razones.push("PERCLOS alto"); }
+    if (PctIncompletos >= 15) { esFatiga = true; razones.push("Muchos parpadeos incompletos"); }
+    if (accumulatedClosureTime >= 3.5) { esFatiga = true; razones.push("Cierre ocular prolongado"); }
+    if (yawnCounter >= 2) { esFatiga = true; razones.push("Bostezos frecuentes"); }
+    if (parseInt(kssValue) >= 7) razones.push("Fatiga subjetiva reportada");
+
+    const storedUser = JSON.parse(sessionStorage.getItem('usuario')) || { id: 1 };
+    
+    const payload = {
+        usuario_id: storedUser.id,
+        tipo_medicion: "inicial",
+        sebr: SEBR,
+        perclos: parseFloat(PERCLOS.toFixed(2)),
+        pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
+        tiempo_cierre: parseFloat(accumulatedClosureTime.toFixed(2)),
+        num_bostezos: yawnCounter,
+        velocidad_ocular: parseFloat(avgVelocity.toFixed(2)),
+        nivel_subjetivo: parseInt(kssValue),
+        es_fatiga: esFatiga
+    };
+
+    try {
+        const response = await fetch('http://localhost:8000/save-fatigue', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        if (response.ok) {
+            document.getElementById('subjectiveModal').style.display = 'none';
+            // Mostrar resultado en modal en vez de alert
+            const diagnosisText = `Diagnóstico: ${esFatiga ? "FATIGA" : "NORMAL"}`;
+            const reasonsText = razones.length > 0 ? razones.join(", ") : "Sin indicadores adicionales";
+            const resultTextEl = document.getElementById('resultText');
+            const resultReasonsEl = document.getElementById('resultReasons');
+            const resultModal = document.getElementById('resultModal');
+
+            if (resultTextEl) resultTextEl.textContent = diagnosisText;
+            if (resultReasonsEl) resultReasonsEl.textContent = reasonsText;
+            if (resultModal) resultModal.style.display = 'flex';
+
+            if (continueBtn) continueBtn.style.display = 'inline-block';
+        } else {
+            // Mostrar error en el mismo modal de resultado
+            const resultTextEl = document.getElementById('resultText');
+            const resultReasonsEl = document.getElementById('resultReasons');
+            const resultModal = document.getElementById('resultModal');
+            if (resultTextEl) resultTextEl.textContent = "Error al guardar";
+            if (resultReasonsEl) resultReasonsEl.textContent = "Respuesta del servidor no OK.";
+            if (resultModal) resultModal.style.display = 'flex';
+        }
+    } catch (e) {
+        console.error(e);
+        const resultTextEl = document.getElementById('resultText');
+        const resultReasonsEl = document.getElementById('resultReasons');
+        const resultModal = document.getElementById('resultModal');
+        if (resultTextEl) resultTextEl.textContent = "Error de conexión";
+        if (resultReasonsEl) resultReasonsEl.textContent = "No se pudo conectar con el servidor.";
+        if (resultModal) resultModal.style.display = 'flex';
     }
-  });
 }
 
-// inicial UI
-actualizarUI();
-// ...existing code...
+// Función para cerrar modal de resultado
+window.closeResultModal = function() {
+    const modal = document.getElementById('resultModal');
+    if (modal) modal.style.display = 'none';
+};
