@@ -4,42 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Evaluación de Fatiga Visual</title>
-  
-  <link rel="stylesheet" href="../../static/css/parpadeo.css">
-  
-  <style>
-    body { font-family: 'Segoe UI', sans-serif; background-color: #f0f4f8; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
-    .main-container { background: white; padding: 2rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; max-width: 800px; width: 95%; }
-    .title { color: #2c3e50; margin-bottom: 1.5rem; }
-    
-    /* Video y Canvas */
-    .video-card { position: relative; width: 640px; height: 480px; margin: 0 auto; background: #000; border-radius: 10px; overflow: hidden; }
-    #output_canvas { width: 100%; height: 100%; object-fit: cover; }
-    #statusOverlay { position: absolute; top: 20px; left: 0; width: 100%; text-align: center; color: white; font-weight: bold; font-size: 1.2rem; text-shadow: 0 2px 4px rgba(0,0,0,0.8); pointer-events: none; }
-
-    /* Estadísticas */
-    .stats { display: flex; justify-content: space-around; margin: 20px 0; }
-    .stat { background: #eef2f7; padding: 10px 20px; border-radius: 10px; min-width: 80px; }
-    .stat-label { display: block; font-size: 0.8rem; color: #7f8c8d; }
-    .stat-value { font-size: 1.5rem; font-weight: bold; color: #34495e; }
-
-    /* Botones */
-    .controls { display: flex; gap: 15px; justify-content: center; margin-top: 20px; }
-    .btn { padding: 10px 25px; border-radius: 50px; border: none; font-size: 1rem; cursor: pointer; transition: transform 0.2s; text-decoration: none; display: inline-block; }
-    .btn:hover { transform: scale(1.05); }
-    .btn-primary { background-color: #3498db; color: white; }
-    .btn-ghost { background-color: #e74c3c; color: white; }
-    .btn:disabled { background-color: #bdc3c7; cursor: not-allowed; }
-
-    /* Modales */
-    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
-    .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-    select { width: 100%; padding: 10px; margin: 15px 0; border-radius: 5px; border: 1px solid #ddd; }
-  </style>
 
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+  <link rel="stylesheet" href="../../static/css/medicion_fatiga.css" />
 </head>
 <body>
 
@@ -49,8 +18,7 @@
     <div class="video-card">
       <video id="video" playsinline autoplay muted style="display:none;"></video>
       <canvas id="output_canvas" width="640" height="480"></canvas>
-      
-      <div id="statusOverlay">Esperando inicio...</div>
+      <div id="statusOverlay">Esperando cámara...</div>
     </div>
 
     <div class="stats">
@@ -68,8 +36,9 @@
       </div>
     </div>
 
-    <p class="info" style="color:#666; font-size:0.9rem;">
-      El sistema calibrará tus ojos durante 10 segundos y luego medirá tu fatiga por 60 segundos. Mantén una postura natural.
+    <p class="info">
+      El sistema calibrará tus ojos durante 10 segundos y luego medirá tu fatiga por 60 segundos. 
+      Mantén una postura natural.
     </p>
 
     <div class="controls">
@@ -80,8 +49,10 @@
 
   <div id="subjectiveModal" class="modal-overlay">
     <div class="modal-content">
-      <h3 style="margin-top:0">Validación Personal</h3>
-      <p style="color:#666; font-size:0.9rem;">Prueba finalizada. ¿Qué tan somnoliento te sientes?</p>
+      <h3>Validación Personal</h3>
+      <p style="color:var(--muted); margin-bottom:20px; font-size: 0.9rem;">
+        Prueba finalizada. ¿Qué tan somnoliento te sientes?
+      </p>
       
       <select id="kssSelect">
         <option value="1">1. Muy Alerta</option>
@@ -91,23 +62,28 @@
         <option value="9">9. Muy somnoliento (luchando)</option>
       </select>
 
-      <button class="btn btn-primary" style="width:100%" onclick="guardarYContinuar()">Guardar Resultados</button>
+      <button class="btn btn-primary" style="width:100%" onclick="guardarYContinuar()">
+        Guardar Resultados
+      </button>
     </div>
   </div>
 
   <div id="resultModal" class="modal-overlay">
     <div class="modal-content">
-      <h3 style="margin-top:0">Resultado del Análisis</h3>
-      <p id="resultText" style="font-weight:700; margin-bottom:8px; font-size:1.2rem;">Diagnóstico: --</p>
-      <p id="resultReasons" style="color:#666; font-size:0.9rem; margin-bottom:18px;">Cargando detalles...</p>
+      <h3>Resultado del Análisis</h3>
+      <div style="margin: 20px 0;">
+        <p id="resultText" style="font-weight:700; font-size:1.3rem; margin-bottom:8px;">Diagnóstico: --</p>
+        <p id="resultReasons" style="color:var(--muted); font-size:0.9rem;">Procesando datos...</p>
+      </div>
       
-      <div style="display:flex; gap:10px; justify-content: center;">
-        <a id="continueBtn" class="btn btn-primary" href="#" style="background: #27ae60; color: white; min-width:150px; text-decoration:none;">
+      <div style="display:flex; justify-content: center;">
+        <a id="continueBtn" class="btn btn-primary" href="#" style="background: var(--success); color: white; border: none; min-width: 160px;">
           Continuar
         </a>
       </div>
     </div>
   </div>
 
-  <script src="/static/js/medicion.js"></script> </body>
+  <script src="/static/js/medicion.js"></script> 
+</body>
 </html>

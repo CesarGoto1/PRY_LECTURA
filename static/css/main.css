@@ -56,17 +56,32 @@ body{
     padding:20px;
 }
 
-.btn-actividades{
-    background:var(--beige);
-    padding:15px 40px;
-    border:none;
-    border-radius:18px;
-    font-size:1.2rem;
-    box-shadow:0 2px 6px rgba(0,0,0,0.2);
-    transition:.2s;
+.center-container {
+    display: flex;
+    justify-content: center; /* Centra horizontalmente */
+    align-items: center;     /* Centra verticalmente si el contenedor tiene altura */
+    width: 100%;             /* Ocupa todo el ancho disponible */
+    margin-top: 30px;        /* Espacio arriba para separarlo de la tabla */
+    margin-bottom: 30px;     /* Espacio abajo */
 }
 
-.btn-actividades:hover{
-    background:#ffe9b9;
-    transform:scale(1.05);
+/* 2. Estilo del Botón */
+.btn-actividades {
+    background-color: #3A7D8E; /* Tu color teal del proyecto */
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 12px 40px;      /* Más relleno para que se vea grande */
+    border: none;
+    border-radius: 50px;     /* Bordes redondeados */
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(58, 125, 142, 0.3); /* Sombra suave */
+    transition: all 0.3s ease;
+}
+
+/* Efecto Hover (al pasar el mouse) */
+.btn-actividades:hover {
+    background-color: #2a5d6b; /* Un poco más oscuro */
+    transform: translateY(-3px); /* Se eleva un poco */
+    box-shadow: 0 6px 20px rgba(58, 125, 142, 0.4);
 }

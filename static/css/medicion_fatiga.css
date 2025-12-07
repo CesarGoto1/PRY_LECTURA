@@ -1,59 +1,58 @@
-/* --- VARIABLES DE TU LOGIN --- */
+    /* --- VARIABLES DE DISEÑO (DARK MODE) --- */
     :root {
       --bg: #0f0f0f;
       --card: #171717;
       --accent: #252525;
-      --accent-hover: #000;
       --text: #d3d3d3;
       --muted: #9a9a9a;
       --success: #00c851;
-      --error: #ff4f4f;
-      --border: rgba(255, 255, 255, 0.05);
+      --danger: #ff4f4f;
+      --border: rgba(255, 255, 255, 0.08);
+      --primary-btn: #ffffff;
+      --primary-btn-text: #000000;
     }
 
     html, body {
       height: 100%;
       margin: 0;
-      font-family: Inter, system-ui, Segoe UI, Arial, sans-serif;
+      font-family: 'Segoe UI', Inter, system-ui, sans-serif;
       background: linear-gradient(180deg, #0b0b0b, #121212);
       color: var(--text);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      overflow: hidden; /* Evita scroll innecesario */
+      overflow: hidden; /* Previene scroll si cabe en pantalla */
     }
 
-    /* Layout Principal */
+    /* Layout Principal - MÁS COMPACTO */
     .main-container {
       width: 100%;
-      max-width: 800px;
-      padding: 20px;
-      box-sizing: border-box;
+      max-width: 600px; /* Reducido de 800px */
+      padding: 15px;    /* Reducido de 20px */
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 12px;        /* Reducido de 20px */
       align-items: center;
     }
 
     h2.title {
       margin: 0;
-      font-size: 1.5rem;
-      color: var(--text);
+      font-size: 1.4rem; /* Reducido */
+      color: #fff;
       text-align: center;
       letter-spacing: 0.5px;
     }
 
-    /* --- TARJETA DE VIDEO (El cambio importante) --- */
+    /* --- TARJETA DE VIDEO (Reducida) --- */
     .video-card {
       width: 100%;
-      height: 80%;
-      max-width: 600px; /* Ancho máximo para que no se pixelee */
-      aspect-ratio: 4 / 3; /* Fuerza la proporción de webcam estándar */
-      background-color: var(--card);
-      border-radius: 20px;
+      max-width: 480px; /* IMPORTANTE: Reducido de 640px a 480px */
+      aspect-ratio: 4 / 3;
+      background-color: #000;
+      border-radius: 15px;
       border: 1px solid var(--border);
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
       position: relative;
       overflow: hidden;
       display: flex;
@@ -61,80 +60,76 @@
       justify-content: center;
     }
 
-    /* El canvas llena la tarjeta sin deformarse */
+    /* El canvas llena la tarjeta */
     canvas#output_canvas {
       width: 100%;
-      height: 80%;
+      height: 100%;
       object-fit: cover;
-      transform: scaleX(-1); /* Efecto espejo */
+      transform: scaleX(-1);
     }
 
-    /* Overlay de Estado (La etiqueta flotante) */
     #statusOverlay {
       position: absolute;
       top: 15px;
-      left: 15px;
-      background: rgba(0, 0, 0, 0.6);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(4px);
       color: var(--success);
-      padding: 6px 12px;
-      border-radius: 8px;
+      padding: 6px 14px;
+      border-radius: 50px;
       font-family: monospace;
       font-size: 0.9rem;
+      font-weight: bold;
       border: 1px solid rgba(255, 255, 255, 0.1);
       z-index: 10;
       pointer-events: none;
     }
 
     .info {
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       color: var(--muted);
       text-align: center;
-      max-width: 600px;
-      margin: 0;
+      max-width: 480px;
+      margin-top: 5px;
+      line-height: 1.3;
     }
 
-    /* --- ESTADÍSTICAS --- */
+    /* --- ESTADÍSTICAS (Más compactas) --- */
     .stats {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
       gap: 10px;
       width: 100%;
-      max-width: 640px;
+      max-width: 480px; /* Alineado con el video */
     }
 
     .stat {
       background-color: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px;
+      border-radius: 10px;
+      padding: 10px; /* Reducido */
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      transition: 0.3s;
-    }
-
-    .stat:hover {
-      border-color: rgba(255,255,255,0.15);
-      transform: translateY(-2px);
     }
 
     .stat-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 1px;
+      margin-bottom: 2px;
     }
 
     .stat-value {
-      font-size: 1.4rem;
-      font-weight: bold;
-      color: var(--text);
-      margin-top: 4px;
+      font-size: 1.3rem; /* Reducido */
+      font-weight: 700;
+      color: #fff;
     }
 
-    /* --- BOTONES (Estilo Login) --- */
+    /* --- BOTONES --- */
     .controls {
       display: flex;
       gap: 15px;
@@ -142,26 +137,28 @@
     }
 
     .btn {
-      padding: 0.7em 1.5em;
+      padding: 10px 25px; /* Botones más delgados */
       border-radius: 8px;
       border: none;
-      outline: none;
-      cursor: pointer;
       font-size: 0.95rem;
-      font-weight: 500;
-      transition: 0.25s;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
       text-decoration: none;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .btn-primary {
-      background-color: var(--text); /* Botón blanco/gris claro para contraste */
-      color: #000;
-      font-weight: bold;
+      background-color: var(--primary-btn);
+      color: var(--primary-btn-text);
+      box-shadow: 0 4px 15px rgba(255, 255, 255, 0.1);
     }
+
     .btn-primary:hover {
-      background-color: white;
-      box-shadow: 0 0 15px rgba(255,255,255,0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(255, 255, 255, 0.2);
     }
 
     .btn-ghost {
@@ -169,26 +166,31 @@
       border: 1px solid var(--border);
       color: var(--muted);
     }
+
     .btn-ghost:hover:not(:disabled) {
       background: rgba(255,255,255,0.05);
-      color: var(--text);
+      color: #fff;
+      border-color: #fff;
     }
+
     .btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    /* --- MODAL --- */
+    /* --- MODALES --- */
     .modal-overlay {
       display: none;
-      position: fixed; top: 0; left: 0;
+      position: fixed;
+      top: 0; left: 0;
       width: 100%; height: 100%;
       background: rgba(0,0,0,0.85);
-      backdrop-filter: blur(5px);
-      z-index: 999;
-      justify-content: center; align-items: center;
+      backdrop-filter: blur(8px);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
     }
-    
+
     .modal-content {
       background: var(--card);
       border: 1px solid var(--border);
@@ -198,16 +200,19 @@
       max-width: 400px;
       width: 90%;
       text-align: center;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.7);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
     }
-    
-    .modal-content select {
+
+    .modal-content h3 { margin-top: 0; color: #fff; font-size: 1.3rem; }
+
+    select {
       width: 100%;
-      padding: 12px;
-      margin: 20px 0;
+      padding: 10px;
+      margin: 15px 0;
       background: var(--bg);
       border: 1px solid var(--border);
-      color: var(--text);
+      color: #fff;
       border-radius: 8px;
       outline: none;
+      font-size: 0.95rem;
     }
