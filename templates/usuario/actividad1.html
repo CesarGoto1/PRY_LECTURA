@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Actividad: Loop Infinito</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #A8DCD7;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    color: #333;
+    overflow: hidden;
+  }
+
+  /* Tarjeta contenedora de la actividad */
+  .activity-card {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 30px;
+    padding: 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    position: relative;
+    width: 90%;
+    max-width: 850px;
+    text-align: center;
+  }
+
+  h2 {
+    color: #3A7D8E;
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+
+  /* Contenedor del Canvas */
+  .canvas-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  canvas {
+    background-color: #FAFAF7;
+    border-radius: 20px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Overlay del Botón Empezar */
+  .start-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    transition: opacity 0.5s ease;
+  }
+
+  .btn-start-big {
+    background-color: #3A7D8E;
+    color: white;
+    font-size: 1.5rem;
+    padding: 15px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 15px rgba(58, 125, 142, 0.3);
+    transition: transform 0.2s, background-color 0.2s;
+    font-weight: bold;
+  }
+
+  .btn-start-big:hover {
+    transform: scale(1.05);
+    background-color: #2e6370;
+  }
+
+  /* Barra de Progreso */
+  .progress-wrapper {
+    width: 80%;
+    margin: 0 auto;
+    display: none; /* Oculto al inicio */
+  }
+
+  .progress {
+    height: 25px;
+    border-radius: 15px;
+    background-color: #e9ecef;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .progress-bar {
+    background-color: #3A7D8E; /* Teal */
+    transition: width 1s linear;
+  }
+
+  .timer-text {
+    font-size: 1.2rem;
+    color: #555;
+    margin-top: 10px;
+    font-weight: 600;
+  }
+
+  /* Botón Terminar (Oculto por defecto) */
+  #finishBtn {
+    display: none;
+    background-color: #e74c3c; /* Rojo para acción final */
+    color: white;
+    font-size: 1.3rem;
+    padding: 12px 35px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 15px rgba(231, 76, 60, 0.3);
+    margin-top: 20px;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  #finishBtn:hover {
+    background-color: #c0392b;
+  }
+
+  @keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Flecha Start en el Canvas (Decorativo) */
+  .start-marker {
+    position: absolute;
+    top: 35%; 
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #e74c3c;
+    font-weight: bold;
+    font-size: 0.9rem;
+    z-index: 1;
+    pointer-events: none; /* Click through */
+  }
+
+</style>
+</head>
+<body>
+
+<div class="activity-card">
+  <h2>Loop Infinito</h2>
+
+  <div class="canvas-container">
+    <canvas id="activityCanvas" width="800" height="400"></canvas>
+    
+    <div id="startLabel" class="start-marker">
+      <div style="background:white; padding:2px 8px; border-radius:4px; border:1px solid #ccc;">Start</div>
+      <div style="text-align:center; color:#e74c3c;">▼</div>
+    </div>
+
+    <div id="startOverlay" class="start-overlay">
+      <button class="btn-start-big" onclick="startActivity()">Empezar Actividad</button>
+    </div>
+  </div>
+
+  <div class="progress-wrapper" id="progressContainer">
+    <div class="progress">
+      <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+    </div>
+    <div class="timer-text">Tiempo restante: <span id="timerCount">30</span>s</div>
+  </div>
+
+  <button id="finishBtn" onclick="finishActivity()">Terminar Actividad</button>
+
+</div>
+
+<script>
+  // ==========================================
+  // CONFIGURACIÓN CIENTÍFICA
+  // ==========================================
+  // Duración basada en Basharat et al. (2023)
+  const DURATION_SECONDS = 30; 
+  // Velocidad para Smooth Pursuit (aprox 5s por vuelta)
+  const BALL_SPEED = 0.02; 
+
+  // Referencias DOM
+  const canvas = document.getElementById('activityCanvas');
+  const ctx = canvas.getContext('2d');
+  const startOverlay = document.getElementById('startOverlay');
+  const startLabel = document.getElementById('startLabel');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const timerCount = document.getElementById('timerCount');
+  const finishBtn = document.getElementById('finishBtn');
+
+  // Variables de Estado
+  let isRunning = false;
+  let angle = 0; // Comienza en 0 (centro)
+  let animationId;
+  let timeLeft = DURATION_SECONDS;
+  let timerInterval;
+
+  // Dimensiones del Loop
+  const centerX = canvas.width / 2;
+  const centerY = canvas.height / 2;
+  const widthRadius = 300; 
+  const heightRadius = 100; 
+
+  // 1. Dibujar el Riel (Estático)
+  function drawTrack() {
+    ctx.beginPath();
+    ctx.lineWidth = 15; 
+    ctx.strokeStyle = '#e0e0e0'; 
+    ctx.lineCap = 'round';
+    
+    // Lissajous curve for Figure 8
+    for (let t = 0; t <= Math.PI * 2; t += 0.01) {
+      const x = centerX + widthRadius * Math.cos(t);
+      const y = centerY + heightRadius * Math.sin(2 * t);
+      if (t === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // 2. Dibujar la Bola
+  function drawBall(x, y) {
+    // Sombra
+    ctx.beginPath();
+    ctx.arc(x, y + 8, 18, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,0.1)';
+    ctx.fill();
+
+    // Bola
+    ctx.beginPath();
+    ctx.arc(x, y, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#3A7D8E'; 
+    ctx.fill();
+    
+    // Brillo
+    ctx.beginPath();
+    ctx.arc(x - 6, y - 6, 6, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fill();
+  }
+
+  // 3. Loop de Animación
+  function update() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawTrack();
+
+    // Posición paramétrica
+    const x = centerX + widthRadius * Math.cos(angle);
+    const y = centerY + heightRadius * Math.sin(2 * angle);
+
+    drawBall(x, y);
+
+    if (isRunning) {
+      angle += BALL_SPEED;
+      // Reseteo de ángulo para evitar números gigantes (opcional)
+      if(angle > Math.PI * 2) angle -= Math.PI * 2;
+      
+      animationId = requestAnimationFrame(update);
+    }
+  }
+
+  // 4. Lógica del Timer
+  function runTimer() {
+    const totalTime = DURATION_SECONDS;
+    
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      timerCount.textContent = timeLeft;
+      
+      // Calcular porcentaje
+      const percentage = ((totalTime - timeLeft) / totalTime) * 100;
+      progressBar.style.width = percentage + "%";
+
+      if (timeLeft <= 0) {
+        completeActivity();
+      }
+    }, 1000);
+  }
+
+  // ==========================================
+  // FUNCIONES DE CONTROL (BOTONES)
+  // ==========================================
+
+  function startActivity() {
+    isRunning = true;
+    
+    // UI Updates
+    startOverlay.style.opacity = '0';
+    setTimeout(() => startOverlay.style.display = 'none', 500);
+    startLabel.style.display = 'none';
+    progressContainer.style.display = 'block';
+    
+    // Start Logics
+    update(); // Iniciar animación Canvas
+    runTimer(); // Iniciar Timer
+  }
+
+  function completeActivity() {
+    // Detener todo
+    isRunning = false;
+    cancelAnimationFrame(animationId);
+    clearInterval(timerInterval);
+    
+    // UI Updates Finales
+    progressBar.classList.remove('progress-bar-animated');
+    progressBar.classList.add('bg-success'); // Cambiar a verde al terminar
+    timerCount.textContent = "0 (Completado)";
+    
+    // Mostrar botón terminar
+    finishBtn.style.display = 'inline-block';
+  }
+
+  function finishActivity() {
+    
+    window.location.href = 'instruccion2.html'; 
+  }
+
+  // Inicialización (Dibujar estado quieto)
+  drawTrack();
+  // Dibujar bola en posición inicial (angle 0)
+  drawBall(centerX + widthRadius, centerY);
+
+</script>
+
+</body>
+</html>

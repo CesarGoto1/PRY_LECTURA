@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Actividad: Enfoque Profundo</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #A8DCD7;
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .activity-card {
+    background-color: rgba(255, 255, 255, 0.98);
+    border-radius: 35px;
+    padding: 30px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    width: 90%;
+    max-width: 750px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  h2 {
+    color: #3A7D8E;
+    font-weight: 700;
+    margin: 0;
+    font-size: 1.8rem;
+  }
+
+  /* --- ESCENARIO DE ANIMACIÓN (SOLO CÍRCULO) --- */
+  .animation-stage {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background-color: #F4FBF9;
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: inset 0 0 15px rgba(58, 125, 142, 0.05);
+  }
+
+  /* Overlay de Inicio */
+  .start-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(2px);
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    transition: opacity 0.4s ease;
+  }
+
+  .btn-start-big {
+    background-color: #3A7D8E;
+    color: white;
+    font-size: 1.4rem;
+    padding: 12px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 20px rgba(58, 125, 142, 0.4);
+    transition: transform 0.2s;
+    font-weight: 600;
+  }
+  .btn-start-big:hover { transform: scale(1.05); }
+
+  /* Puntos Guía */
+  .guide-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #cbd5e1;
+    border-radius: 50%;
+  }
+  .g-left { left: 15%; }
+  .g-right { right: 15%; }
+
+  /* Círculo Principal */
+  .focus-circle {
+    width: 100px;
+    height: 100px;
+    background-color: #3A7D8E;
+    border-radius: 50%;
+    box-shadow: 0 10px 30px rgba(58, 125, 142, 0.3);
+    z-index: 5;
+    transform: scale(1);
+  }
+
+  @keyframes breatheEffect {
+    0% { transform: scale(1.8); background-color: #3A7D8E; }   /* Grande */
+    50% { transform: scale(0.4); background-color: #2a5d6b; } /* Pequeño */
+    100% { transform: scale(1.8); background-color: #3A7D8E; } /* Grande */
+  }
+
+  .animating {
+    animation: breatheEffect 8s infinite ease-in-out;
+  }
+
+  /* --- TEXTO DE INSTRUCCIÓN (SEPARADO) --- */
+  .instruction-container {
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .instruction-text {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #4A8B95;
+    transition: opacity 0.5s;
+    opacity: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+  }
+
+  /* --- BARRA DE PROGRESO CLÁSICA (Igual que antes) --- */
+  .progress-wrapper {
+    width: 90%;
+    margin: 0 auto;
+    display: none;
+  }
+
+  .progress {
+    height: 25px; /* Altura original */
+    border-radius: 15px;
+    background-color: #e9ecef;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .progress-bar {
+    background-color: #3A7D8E;
+    transition: width 1s linear;
+  }
+
+  .timer-text {
+    font-size: 1.2rem;
+    color: #555;
+    margin-top: 10px;
+    font-weight: 600;
+  }
+
+  #finishBtn {
+    display: none;
+    background-color: #e74c3c;
+    color: white;
+    font-size: 1.2rem;
+    padding: 10px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 20px rgba(231, 76, 60, 0.3);
+    margin: 0 auto;
+    animation: popIn 0.5s;
+  }
+  #finishBtn:hover { background-color: #c0392b; }
+
+  @keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+</style>
+</head>
+<body>
+
+<div class="activity-card">
+  <h2>Enfoque y Respiración</h2>
+  
+  <div class="animation-stage">
+    <div id="startOverlay" class="start-overlay">
+      <button class="btn-start-big" onclick="startActivity()">Empezar Actividad</button>
+    </div>
+    <div class="guide-dot g-left"></div>
+    <div class="guide-dot g-right"></div>
+    <div class="focus-circle" id="focusCircle"></div>
+  </div>
+
+  <div class="instruction-container">
+    <div class="instruction-text" id="dynamicText">Prepárate</div>
+  </div>
+
+  <div class="progress-wrapper" id="progressContainer">
+    <div class="progress">
+      <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+    </div>
+    <div class="timer-text">Tiempo restante: <span id="timerCount">64</span>s</div>
+  </div>
+
+  <button id="finishBtn" onclick="finishActivity()">Terminar Actividad</button>
+</div>
+
+<script>
+  const CYCLE_DURATION = 8000;
+  const TOTAL_DURATION = 64;
+
+  const startOverlay = document.getElementById('startOverlay');
+  const progressContainer = document.getElementById('progressContainer');
+  const progressBar = document.getElementById('progressBar');
+  const timerCount = document.getElementById('timerCount');
+  const finishBtn = document.getElementById('finishBtn');
+  const circle = document.getElementById('focusCircle');
+  const dynamicText = document.getElementById('dynamicText');
+
+  let timeLeft = TOTAL_DURATION;
+  let timerInterval;
+  let textInterval;
+
+  function startActivity() {
+    startOverlay.style.opacity = '0';
+    setTimeout(() => startOverlay.style.display = 'none', 400);
+    progressContainer.style.display = 'block';
+    dynamicText.style.opacity = '1';
+    
+    circle.classList.add('animating');
+
+    runTextCycle(); 
+    textInterval = setInterval(runTextCycle, CYCLE_DURATION);
+    runTimer();
+  }
+
+  function runTextCycle() {
+    // Fase 1: INHALA
+    dynamicText.textContent = "Inhala... (Enfoca Lejos)";
+    dynamicText.style.color = "#2a5d6b"; 
+
+    // Fase 2: EXHALA
+    setTimeout(() => {
+      if(timeLeft > 0) {
+        dynamicText.textContent = "Exhala... (Enfoca Cerca)";
+        dynamicText.style.color = "#3A7D8E";
+      }
+    }, 4000);
+  }
+
+  function runTimer() {
+    timerInterval = setInterval(() => {
+      timeLeft--;
+      timerCount.textContent = timeLeft;
+      
+      const percentage = ((TOTAL_DURATION - timeLeft) / TOTAL_DURATION) * 100;
+      progressBar.style.width = percentage + "%";
+
+      if (timeLeft <= 0) {
+        completeActivity();
+      }
+    }, 1000);
+  }
+
+  function completeActivity() {
+    clearInterval(timerInterval);
+    clearInterval(textInterval);
+    circle.classList.remove('animating');
+    
+    dynamicText.textContent = "¡Completado!";
+    circle.style.transform = "scale(1)";
+    
+    progressBar.classList.remove('progress-bar-animated');
+    progressBar.classList.add('bg-success');
+    
+    timerCount.textContent = "0 (Completado)";
+    finishBtn.style.display = 'inline-block';
+  }
+
+  function finishActivity() {
+    window.location.href = 'instruccion3.html';
+  }
+</script>
+
+</body>
+</html>

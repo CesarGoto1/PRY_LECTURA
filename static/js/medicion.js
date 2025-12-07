@@ -1,31 +1,58 @@
 // ==========================================
-// CONFIGURACIÓN Y REFERENCIAS DOM
+// 1. CONFIGURACIÓN DINÁMICA (INICIAL VS FINAL)
+// ==========================================
+
+// Detectar parámetro en la URL (ej: medicion_fatiga.html?tipo=final)
+const urlParams = new URLSearchParams(window.location.search);
+const tipoParam = urlParams.get('tipo'); 
+const TIPO_ACTUAL = tipoParam === 'final' ? 'final' : 'inicial';
+
+// Referencias DOM para UI dinámica
+const pageTitle = document.getElementById('pageTitle');
+const continueBtn = document.getElementById('continueBtn');
+
+// Aplicar configuración inicial
+if (TIPO_ACTUAL === 'final') {
+    if(pageTitle) pageTitle.textContent = "Reconocimiento Final de Fatiga";
+    if(continueBtn) {
+        continueBtn.href = "/templates/usuario/resultados_globales.html"; // Ruta a resultados finales
+        continueBtn.textContent = "Ver Informe Final";
+    }
+} else {
+    if(pageTitle) pageTitle.textContent = "Reconocimiento Inicial de Fatiga";
+    if(continueBtn) {
+        continueBtn.href = "instruccion1.html"; // Ruta a la primera actividad
+        continueBtn.textContent = "Ir a Actividad 1";
+    }
+}
+
+console.log(`Sistema configurado en modo: ${TIPO_ACTUAL.toUpperCase()}`);
+
+// ==========================================
+// 2. VARIABLES GLOBALES Y REFERENCIAS
 // ==========================================
 const videoElement = document.getElementById('video');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
-const continueBtn = document.getElementById('continueBtn');
 const statusOverlay = document.getElementById('statusOverlay');
 
-// Stats Elements
+// Elementos de Estadísticas
 const blinkCountEl = document.getElementById('blinkCount');
 const yawnCountEl = document.getElementById('yawnCount');
 const timerEl = document.getElementById('timerCount');
 
-// ==========================================
-// VARIABLES GLOBALES DEL SISTEMA
-// ==========================================
-let appState = 'IDLE'; 
+// Estado del Sistema
+let appState = 'IDLE'; // IDLE, CALIBRATING, MEASURING, FINISHED
 let running = false;
 let camera = null;
 let startTime = 0;
 let lastFrameTime = 0;
 
-// Constantes de Tiempo
-const CALIBRATION_DURATION = 10;
-const MEASUREMENT_DURATION = 60;
+// Configuración de Tiempos
+const CALIBRATION_DURATION = 10; // Segundos de calibración
+const MEASUREMENT_DURATION = 60; // Segundos de medición real
 
 // Variables de Calibración
 let calibrationEARs = []; 
@@ -33,10 +60,10 @@ let calibrationMARs = [];
 let baselineEAR = 0; 
 let baselineMAR = 0;
 
-// Umbrales Dinámicos
-let thresClose = 0; 
-let thresOpen = 0;
-let thresYawn = 0.5;
+// Umbrales Dinámicos (se calculan tras calibrar)
+let thresClose = 0.20; 
+let thresOpen = 0.25;
+let thresYawn = 0.50;
 
 // Variables de Medición
 let blinkCounter = 0;         
@@ -45,24 +72,24 @@ let accumulatedClosureTime = 0;
 let measureFramesTotal = 0;
 let measureFramesClosed = 0;
 
-// Variables Lógicas (Parpadeo)
+// Lógica de Parpadeo
 let isBlinking = false;
 let minEarInBlink = 1.0; 
 
-// Variables Bostezos
+// Lógica de Bostezos
 let yawnCounter = 0;
 let isYawning = false;
 let yawnStartTime = 0;
-const MIN_YAWN_TIME = 1.5; 
+const MIN_YAWN_TIME = 1.5; // Segundos para considerar bostezo real
 
-// Variables Velocidad Ocular
+// Lógica de Velocidad Ocular (Movimiento del Iris)
 let prevIrisPos = null;
 let totalIrisDistance = 0;
 let frameCount = 0;
-const LEFT_IRIS_CENTER = 468;
+const LEFT_IRIS_CENTER = 468; // Landmark de MediaPipe
 
 // ==========================================
-// FUNCIONES AUXILIARES MATEMÁTICAS
+// 3. FUNCIONES MATEMÁTICAS (EAR, MAR, DISTANCIA)
 // ==========================================
 
 function distanciaPx(p1, p2, w, h) {
@@ -71,12 +98,15 @@ function distanciaPx(p1, p2, w, h) {
     return Math.hypot(dx, dy);
 }
 
+// Eye Aspect Ratio
 function calcularEAR(lm, w, h) {
+    // Ojo Izquierdo
     const l_v1 = distanciaPx(lm[160], lm[144], w, h);
     const l_v2 = distanciaPx(lm[158], lm[153], w, h);
     const l_h  = distanciaPx(lm[33],  lm[133], w, h);
     const ear_l = (l_v1 + l_v2) / (2.0 * l_h);
 
+    // Ojo Derecho
     const r_v1 = distanciaPx(lm[385], lm[380], w, h);
     const r_v2 = distanciaPx(lm[387], lm[373], w, h);
     const r_h  = distanciaPx(lm[362], lm[263], w, h);
@@ -85,21 +115,18 @@ function calcularEAR(lm, w, h) {
     return (ear_l + ear_r) / 2.0;
 }
 
+// Mouth Aspect Ratio (para bostezos)
 function calcularMAR(lm, w, h) {
-    // 1. Línea Vertical Central
     const v1 = distanciaPx(lm[13], lm[14], w, h);
-    // 2. Líneas Verticales Laterales
     const v2 = distanciaPx(lm[81], lm[178], w, h);
     const v3 = distanciaPx(lm[311], lm[402], w, h);
-    
     const vertical = (v1 + v2 + v3) / 3.0;
     const horizontal = distanciaPx(lm[61], lm[291], w, h);
-
     return horizontal > 0 ? vertical / horizontal : 0;
 }
 
 // ==========================================
-// LÓGICA PRINCIPAL (MediaPipe)
+// 4. CONFIGURACIÓN MEDIAPIPE FACE MESH
 // ==========================================
 
 const faceMesh = new FaceMesh({
@@ -108,7 +135,7 @@ const faceMesh = new FaceMesh({
 
 faceMesh.setOptions({
     maxNumFaces: 1,
-    refineLandmarks: true,
+    refineLandmarks: true, // Importante para iris y detalles de ojos
     minDetectionConfidence: 0.7,
     minTrackingConfidence: 0.7
 });
@@ -116,6 +143,7 @@ faceMesh.setOptions({
 faceMesh.onResults((results) => {
     if (!running) return;
 
+    // Dibujar video en canvas
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
@@ -129,45 +157,49 @@ faceMesh.onResults((results) => {
         const w = canvasElement.width;
         const h = canvasElement.height;
 
-        drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, {color: '#C0C0C030', lineWidth: 1});
+        // Dibujo opcional (puedes descomentar para ver la malla)
+        // drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, {color: '#C0C0C030', lineWidth: 1});
 
+        // Cálculos Métricos del Frame Actual
         const currentEAR = calcularEAR(lm, w, h);
         const currentMAR = calcularMAR(lm, w, h);
         const currentIrisPos = { x: lm[LEFT_IRIS_CENTER].x, y: lm[LEFT_IRIS_CENTER].y };
 
+        // --- MÁQUINA DE ESTADOS ---
+        
         if (appState === 'IDLE') {
-            statusOverlay.textContent = "Listo. Presiona 'Iniciar Test'";
+            statusOverlay.textContent = "Listo para iniciar";
             statusOverlay.style.color = "white";
         
         } else if (appState === 'CALIBRATING') {
             const elapsed = now - startTime;
-            statusOverlay.textContent = `CALIBRANDO (${Math.ceil(CALIBRATION_DURATION - elapsed)}s) - Mira naturalmente`;
+            statusOverlay.textContent = `CALIBRANDO (${Math.ceil(CALIBRATION_DURATION - elapsed)}s) - Mira al frente naturalmente`;
             statusOverlay.style.color = "yellow";
             
+            // Recolectar datos para promedio
             calibrationEARs.push(currentEAR);
             calibrationMARs.push(currentMAR); 
 
             if (elapsed >= CALIBRATION_DURATION) {
-                // Calibrar Ojos
+                // FIN CALIBRACIÓN: Calcular Promedios
                 const sumEar = calibrationEARs.reduce((a, b) => a + b, 0);
                 baselineEAR = sumEar / calibrationEARs.length;
                 
-                thresClose = baselineEAR * 0.50; 
-                thresOpen = baselineEAR * 0.80; 
-
-                // Calibrar Boca
+                // Definir umbrales personalizados según la anatomía del usuario
+                thresClose = baselineEAR * 0.55; // Cerrado es el 55% del ojo abierto promedio
+                thresOpen = baselineEAR * 0.85;  // Abierto debe recuperar el 85%
+                
                 const sumMar = calibrationMARs.reduce((a, b) => a + b, 0);
                 baselineMAR = sumMar / calibrationMARs.length;
-                
-                // Umbral dinámico para bostezo
-                thresYawn = Math.max(0.5, baselineMAR + 0.35);
+                thresYawn = Math.max(0.5, baselineMAR + 0.30); // Bostezo es apertura grande
 
-                console.log(`Calibración Completa. EAR: ${baselineEAR.toFixed(3)}, MAR: ${baselineMAR.toFixed(3)}, ThresYawn: ${thresYawn.toFixed(3)}`);
+                console.log(`Calibrado: EAR Base=${baselineEAR.toFixed(3)}, Close<${thresClose.toFixed(3)}, Yawn>${thresYawn.toFixed(3)}`);
                 
+                // Cambiar estado a Midiendo
                 appState = 'MEASURING';
-                startTime = now;
+                startTime = now; // Reiniciar tiempo para medición
                 
-                // Reset contadores
+                // Resetear contadores
                 blinkCounter = 0; incompleteBlinks = 0; yawnCounter = 0;
                 accumulatedClosureTime = 0; measureFramesTotal = 0; measureFramesClosed = 0;
                 totalIrisDistance = 0; frameCount = 0;
@@ -176,13 +208,16 @@ faceMesh.onResults((results) => {
         } else if (appState === 'MEASURING') {
             const elapsed = now - startTime;
             const remaining = Math.ceil(MEASUREMENT_DURATION - elapsed);
+            
             statusOverlay.textContent = `MIDIENDO... ${remaining}s`;
+            statusOverlay.style.color = "#00ff00"; // Verde
             timerEl.textContent = `${remaining}s`;
 
             measureFramesTotal++;
 
-            // --- A. DETECCIÓN PARPADEO ---
+            // --- A. DETECCIÓN DE PARPADEO ---
             if (currentEAR < thresClose) {
+                // Ojo cerrado
                 if (!isBlinking) {
                     isBlinking = true;
                     minEarInBlink = currentEAR;
@@ -193,9 +228,12 @@ faceMesh.onResults((results) => {
                 accumulatedClosureTime += deltaTime;
             } 
             else if (currentEAR > thresOpen && isBlinking) {
+                // Fin del parpadeo (Ojo abierto de nuevo)
                 blinkCounter++;
                 blinkCountEl.textContent = blinkCounter;
-                if (minEarInBlink > (thresClose * 0.8)) {
+                
+                // Verificar si fue incompleto (no cerró suficiente)
+                if (minEarInBlink > (thresClose * 0.7)) { 
                     incompleteBlinks++;
                 }
                 isBlinking = false;
@@ -218,7 +256,7 @@ faceMesh.onResults((results) => {
                 }
             }
 
-            // --- C. VELOCIDAD OCULAR ---
+            // --- C. VELOCIDAD OCULAR (Sacádicos / Fatiga) ---
             if (prevIrisPos) {
                 const dist = Math.hypot(currentIrisPos.x - prevIrisPos.x, currentIrisPos.y - prevIrisPos.y);
                 totalIrisDistance += dist;
@@ -226,11 +264,11 @@ faceMesh.onResults((results) => {
             }
             prevIrisPos = currentIrisPos;
 
-            // Finalizar
+            // --- FIN DE LA MEDICIÓN ---
             if (elapsed >= MEASUREMENT_DURATION) {
                 appState = 'FINISHED';
                 stopCamera();
-                mostrarModalSubjetivo();
+                mostrarModalSubjetivo(); // Lanzar popup
             }
         }
     }
@@ -238,7 +276,7 @@ faceMesh.onResults((results) => {
 });
 
 // ==========================================
-// GESTIÓN DE CÁMARA
+// 5. CONTROL DE CÁMARA Y BOTONES
 // ==========================================
 
 function startCamera() {
@@ -257,6 +295,8 @@ function startCamera() {
         stopBtn.disabled = false;
         appState = 'CALIBRATING';
         startTime = performance.now() / 1000;
+        
+        // Limpiar arrays de calibración
         calibrationEARs = [];
         calibrationMARs = [];
     });
@@ -267,56 +307,50 @@ function stopCamera() {
     if (camera) camera.stop();
     startBtn.disabled = false;
     stopBtn.disabled = true;
-    statusOverlay.textContent = "Test Finalizado";
+    statusOverlay.textContent = "Prueba Finalizada";
     statusOverlay.style.color = "white";
 }
 
+// Listeners
 if(startBtn) startBtn.addEventListener('click', startCamera);
 if(stopBtn) stopBtn.addEventListener('click', stopCamera);
 
 // ==========================================
-// ENVÍO DE RESULTADOS Y MODALES
+// 6. GUARDADO DE DATOS Y MODALES
 // ==========================================
 
 function mostrarModalSubjetivo() {
-    const modal = document.getElementById('subjectiveModal');
-    if(modal) modal.style.display = 'flex';
+    document.getElementById('subjectiveModal').style.display = 'flex';
 }
 
 window.guardarYContinuar = async function() {
     const kssSelect = document.getElementById('kssSelect');
     const kssValue = kssSelect ? kssSelect.value : "1";
     
-    const SEBR = blinkCounter;
-    const PERCLOS = measureFramesTotal > 0 ? (measureFramesClosed / measureFramesTotal) * 100 : 0;
+    // --- CÁLCULO DE MÉTRICAS DE FATIGA ---
+    const SEBR = blinkCounter; // Spontaneous Eye Blink Rate (blinks/min)
+    const PERCLOS = measureFramesTotal > 0 ? (measureFramesClosed / measureFramesTotal) * 100 : 0; // % Tiempo ojos cerrados
     const PctIncompletos = blinkCounter > 0 ? (incompleteBlinks / blinkCounter) * 100 : 0;
-    const avgVelocity = frameCount > 0 ? (totalIrisDistance / frameCount) * 100 : 0;
+    const avgVelocity = frameCount > 0 ? (totalIrisDistance / frameCount) * 100 : 0; // Unidad arbitraria de movimiento
 
+    // --- ALGORITMO SIMPLE DE DIAGNÓSTICO ---
     let esFatiga = false;
     let razones = [];
 
-    if (SEBR <= 5) { esFatiga = true; razones.push("SEBR bajo"); }
-    if (PERCLOS >= 6) { esFatiga = true; razones.push("PERCLOS alto"); }
-    if (PctIncompletos >= 15) { esFatiga = true; razones.push("Muchos parpadeos incompletos"); }
-    if (accumulatedClosureTime >= 3.5) { esFatiga = true; razones.push("Cierre ocular prolongado"); }
+    // Criterios de Fatiga (Basados en literatura CVS/Fatiga)
+    if (SEBR <= 8) { esFatiga = true; razones.push("Baja frecuencia de parpadeo (SEBR)"); }
+    if (PERCLOS >= 8) { esFatiga = true; razones.push("Cierre ocular prolongado (PERCLOS)"); }
+    if (PctIncompletos >= 40) { esFatiga = true; razones.push("Parpadeos incompletos excesivos"); }
     if (yawnCounter >= 2) { esFatiga = true; razones.push("Bostezos frecuentes"); }
-    if (parseInt(kssValue) >= 7) razones.push("Fatiga subjetiva reportada");
+    if (parseInt(kssValue) >= 7) razones.push("Fatiga subjetiva alta");
 
+    // --- PREPARAR PAYLOAD ---
+    // Obtener ID usuario de SessionStorage o Default
     const storedUser = JSON.parse(sessionStorage.getItem('usuario')) || { id: 1 };
     
-    // DETECCIÓN INTELIGENTE DEL TIPO DE PRUEBA
-    // Si definiste <script>const TIPO_PRUEBA="final"</script> en el HTML, usará eso.
-    // Si no, mirará si la URL tiene la palabra "final".
-    let tipoDeterminado = "inicial";
-    if (typeof TIPO_PRUEBA !== 'undefined') {
-        tipoDeterminado = TIPO_PRUEBA;
-    } else if (window.location.href.toLowerCase().includes("final")) {
-        tipoDeterminado = "final";
-    }
-
     const payload = {
         usuario_id: storedUser.id,
-        tipo_medicion: tipoDeterminado,
+        tipo_medicion: TIPO_ACTUAL, // 'inicial' o 'final'
         sebr: SEBR,
         perclos: parseFloat(PERCLOS.toFixed(2)),
         pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
@@ -327,7 +361,10 @@ window.guardarYContinuar = async function() {
         es_fatiga: esFatiga
     };
 
+    console.log("Enviando datos:", payload);
+
     try {
+        // Enviar a tu Backend (Python/Flask)
         const response = await fetch('http://localhost:8000/save-fatigue', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
@@ -335,30 +372,25 @@ window.guardarYContinuar = async function() {
         });
 
         if (response.ok) {
+            // Ocultar modal KSS y mostrar Resultados
             document.getElementById('subjectiveModal').style.display = 'none';
-            
-            const diagnosisText = `Diagnóstico: ${esFatiga ? "FATIGA" : "NORMAL"}`;
-            const reasonsText = razones.length > 0 ? razones.join(", ") : "Sin indicadores adicionales";
             
             const resultTextEl = document.getElementById('resultText');
             const resultReasonsEl = document.getElementById('resultReasons');
-            const resultModal = document.getElementById('resultModal');
-
-            if (resultTextEl) resultTextEl.textContent = diagnosisText;
-            if (resultReasonsEl) resultReasonsEl.textContent = reasonsText;
-            if (resultModal) resultModal.style.display = 'flex';
-
-            if (continueBtn) continueBtn.style.display = 'inline-block';
+            
+            resultTextEl.textContent = esFatiga ? "Diagnóstico: FATIGA DETECTADA" : "Diagnóstico: ESTADO NORMAL";
+            resultTextEl.style.color = esFatiga ? "#e74c3c" : "#27ae60";
+            
+            resultReasonsEl.textContent = razones.length > 0 ? 
+                "Indicadores: " + razones.join(", ") : 
+                "Tus métricas oculares están dentro del rango saludable.";
+            
+            document.getElementById('resultModal').style.display = 'flex';
         } else {
-            alert("Error al guardar datos. Revisa la consola.");
+            alert("Error al guardar en el servidor. Revisa que el backend esté corriendo.");
         }
     } catch (e) {
         console.error(e);
-        alert("Error de conexión con el servidor.");
+        alert("No se pudo conectar con el servidor (localhost:8000).");
     }
 }
-
-window.closeResultModal = function() {
-    const modal = document.getElementById('resultModal');
-    if (modal) modal.style.display = 'none';
-};
