@@ -29,14 +29,14 @@ const MEASUREMENT_DURATION = 60;
 
 // Variables de Calibración
 let calibrationEARs = []; 
-let calibrationMARs = []; // NUEVO: Array para calibrar boca
+let calibrationMARs = []; 
 let baselineEAR = 0; 
-let baselineMAR = 0;      // NUEVO: Boca en reposo
+let baselineMAR = 0;
 
 // Umbrales Dinámicos
 let thresClose = 0; 
 let thresOpen = 0;
-let thresYawn = 0.5;      // NUEVO: Se ajustará según tu boca
+let thresYawn = 0.5;
 
 // Variables de Medición
 let blinkCounter = 0;         
@@ -53,7 +53,7 @@ let minEarInBlink = 1.0;
 let yawnCounter = 0;
 let isYawning = false;
 let yawnStartTime = 0;
-const MIN_YAWN_TIME = 1.5; // Duración mínima para contar como bostezo
+const MIN_YAWN_TIME = 1.5; 
 
 // Variables Velocidad Ocular
 let prevIrisPos = null;
@@ -85,26 +85,21 @@ function calcularEAR(lm, w, h) {
     return (ear_l + ear_r) / 2.0;
 }
 
-// MEJORA: Fórmula MAR más robusta usando 3 líneas verticales
 function calcularMAR(lm, w, h) {
-    // 1. Línea Vertical Central (Labio sup e inf interiores)
+    // 1. Línea Vertical Central
     const v1 = distanciaPx(lm[13], lm[14], w, h);
-    // 2. Línea Vertical Izquierda (Puntos intermedios)
+    // 2. Líneas Verticales Laterales
     const v2 = distanciaPx(lm[81], lm[178], w, h);
-    // 3. Línea Vertical Derecha (Puntos intermedios)
     const v3 = distanciaPx(lm[311], lm[402], w, h);
     
-    // Promedio de apertura vertical
     const vertical = (v1 + v2 + v3) / 3.0;
-
-    // Distancia Horizontal (Comisuras)
     const horizontal = distanciaPx(lm[61], lm[291], w, h);
 
     return horizontal > 0 ? vertical / horizontal : 0;
 }
 
 // ==========================================
-// LÓGICA PRINCIPAL
+// LÓGICA PRINCIPAL (MediaPipe)
 // ==========================================
 
 const faceMesh = new FaceMesh({
@@ -150,28 +145,24 @@ faceMesh.onResults((results) => {
             statusOverlay.style.color = "yellow";
             
             calibrationEARs.push(currentEAR);
-            calibrationMARs.push(currentMAR); // Guardamos datos de boca
+            calibrationMARs.push(currentMAR); 
 
             if (elapsed >= CALIBRATION_DURATION) {
-                // 1. Calibrar Ojos
+                // Calibrar Ojos
                 const sumEar = calibrationEARs.reduce((a, b) => a + b, 0);
                 baselineEAR = sumEar / calibrationEARs.length;
                 
                 thresClose = baselineEAR * 0.50; 
                 thresOpen = baselineEAR * 0.80; 
 
-                // 2. Calibrar Boca (NUEVO)
+                // Calibrar Boca
                 const sumMar = calibrationMARs.reduce((a, b) => a + b, 0);
                 baselineMAR = sumMar / calibrationMARs.length;
                 
-                // El umbral es tu boca en reposo + 0.35 de apertura extra.
-                // Ponemos un mínimo de 0.5 para evitar falsos positivos al hablar.
+                // Umbral dinámico para bostezo
                 thresYawn = Math.max(0.5, baselineMAR + 0.35);
 
-                console.log(`Calibración Completa. 
-                    EAR Base: ${baselineEAR.toFixed(3)} 
-                    MAR Base: ${baselineMAR.toFixed(3)} 
-                    Umbral Bostezo: ${thresYawn.toFixed(3)}`);
+                console.log(`Calibración Completa. EAR: ${baselineEAR.toFixed(3)}, MAR: ${baselineMAR.toFixed(3)}, ThresYawn: ${thresYawn.toFixed(3)}`);
                 
                 appState = 'MEASURING';
                 startTime = now;
@@ -210,23 +201,18 @@ faceMesh.onResults((results) => {
                 isBlinking = false;
             }
 
-            // --- B. DETECCIÓN DE BOSTEZOS (MEJORADA) ---
-            // Usamos el umbral dinámico 'thresYawn' calculado en calibración
+            // --- B. DETECCIÓN DE BOSTEZOS ---
             if (currentMAR > thresYawn) {
                 if (!isYawning) {
                     isYawning = true;
                     yawnStartTime = now;
-                    // Visual feedback opcional en consola
-                    console.log("Inicio posible bostezo...");
                 }
             } else {
                 if (isYawning) {
-                    // Si terminó el bostezo, verificamos duración
                     const yawnDuration = now - yawnStartTime;
                     if (yawnDuration > MIN_YAWN_TIME) {
                         yawnCounter++;
                         yawnCountEl.textContent = yawnCounter;
-                        console.log("Bostezo confirmado. Duración:", yawnDuration.toFixed(2));
                     }
                     isYawning = false;
                 }
@@ -272,7 +258,7 @@ function startCamera() {
         appState = 'CALIBRATING';
         startTime = performance.now() / 1000;
         calibrationEARs = [];
-        calibrationMARs = []; // Reset array
+        calibrationMARs = [];
     });
 }
 
@@ -285,11 +271,11 @@ function stopCamera() {
     statusOverlay.style.color = "white";
 }
 
-startBtn.addEventListener('click', startCamera);
-stopBtn.addEventListener('click', stopCamera);
+if(startBtn) startBtn.addEventListener('click', startCamera);
+if(stopBtn) stopBtn.addEventListener('click', stopCamera);
 
 // ==========================================
-// ENVÍO DE RESULTADOS
+// ENVÍO DE RESULTADOS Y MODALES
 // ==========================================
 
 function mostrarModalSubjetivo() {
@@ -298,7 +284,8 @@ function mostrarModalSubjetivo() {
 }
 
 window.guardarYContinuar = async function() {
-    const kssValue = document.getElementById('kssSelect').value;
+    const kssSelect = document.getElementById('kssSelect');
+    const kssValue = kssSelect ? kssSelect.value : "1";
     
     const SEBR = blinkCounter;
     const PERCLOS = measureFramesTotal > 0 ? (measureFramesClosed / measureFramesTotal) * 100 : 0;
@@ -317,9 +304,19 @@ window.guardarYContinuar = async function() {
 
     const storedUser = JSON.parse(sessionStorage.getItem('usuario')) || { id: 1 };
     
+    // DETECCIÓN INTELIGENTE DEL TIPO DE PRUEBA
+    // Si definiste <script>const TIPO_PRUEBA="final"</script> en el HTML, usará eso.
+    // Si no, mirará si la URL tiene la palabra "final".
+    let tipoDeterminado = "inicial";
+    if (typeof TIPO_PRUEBA !== 'undefined') {
+        tipoDeterminado = TIPO_PRUEBA;
+    } else if (window.location.href.toLowerCase().includes("final")) {
+        tipoDeterminado = "final";
+    }
+
     const payload = {
         usuario_id: storedUser.id,
-        tipo_medicion: "inicial",
+        tipo_medicion: tipoDeterminado,
         sebr: SEBR,
         perclos: parseFloat(PERCLOS.toFixed(2)),
         pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
@@ -339,9 +336,10 @@ window.guardarYContinuar = async function() {
 
         if (response.ok) {
             document.getElementById('subjectiveModal').style.display = 'none';
-            // Mostrar resultado en modal en vez de alert
+            
             const diagnosisText = `Diagnóstico: ${esFatiga ? "FATIGA" : "NORMAL"}`;
             const reasonsText = razones.length > 0 ? razones.join(", ") : "Sin indicadores adicionales";
+            
             const resultTextEl = document.getElementById('resultText');
             const resultReasonsEl = document.getElementById('resultReasons');
             const resultModal = document.getElementById('resultModal');
@@ -352,26 +350,14 @@ window.guardarYContinuar = async function() {
 
             if (continueBtn) continueBtn.style.display = 'inline-block';
         } else {
-            // Mostrar error en el mismo modal de resultado
-            const resultTextEl = document.getElementById('resultText');
-            const resultReasonsEl = document.getElementById('resultReasons');
-            const resultModal = document.getElementById('resultModal');
-            if (resultTextEl) resultTextEl.textContent = "Error al guardar";
-            if (resultReasonsEl) resultReasonsEl.textContent = "Respuesta del servidor no OK.";
-            if (resultModal) resultModal.style.display = 'flex';
+            alert("Error al guardar datos. Revisa la consola.");
         }
     } catch (e) {
         console.error(e);
-        const resultTextEl = document.getElementById('resultText');
-        const resultReasonsEl = document.getElementById('resultReasons');
-        const resultModal = document.getElementById('resultModal');
-        if (resultTextEl) resultTextEl.textContent = "Error de conexión";
-        if (resultReasonsEl) resultReasonsEl.textContent = "No se pudo conectar con el servidor.";
-        if (resultModal) resultModal.style.display = 'flex';
+        alert("Error de conexión con el servidor.");
     }
 }
 
-// Función para cerrar modal de resultado
 window.closeResultModal = function() {
     const modal = document.getElementById('resultModal');
     if (modal) modal.style.display = 'none';
