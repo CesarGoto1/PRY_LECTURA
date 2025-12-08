@@ -7,97 +7,453 @@
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <link rel="stylesheet" href="../../static/css/main.css">
+
+<style>
+    body { background-color: #f0f4f8; font-family: 'Segoe UI', sans-serif; }
+    
+    .metric-card {
+        background: white; border-radius: 15px; padding: 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: transform 0.2s;
+        height: 100%; border-left: 5px solid transparent;
+    }
+    .metric-card:hover { transform: translateY(-5px); }
+    .card-warning { border-left-color: #ffc107; }
+    .card-primary { border-left-color: #652DFF; }
+    .card-success { border-left-color: #198754; }
+
+    .dashboard-box {
+        background: white; border-radius: 15px; padding: 25px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+
+    .btn-actividades {
+        background-color: #3A7D8E; color: white; font-size: 1.1rem;
+        font-weight: 600; padding: 12px 40px; border: none;
+        border-radius: 50px; cursor: pointer;
+        box-shadow: 0 4px 15px rgba(58, 125, 142, 0.3); transition: all 0.3s ease;
+    }
+    .btn-actividades:hover { background-color: #2a5d6b; transform: translateY(-2px); }
+
+    .navbar-global { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 15px 5%; }
+    .brand-text { font-weight: 700; font-size: 1.2rem; color: #333; }
+    .btn-logout { border: 1px solid #dc3545; color: #dc3545; background: transparent; padding: 5px 15px; border-radius: 20px; transition: 0.2s; }
+    .btn-logout:hover { background: #dc3545; color: white; }
+
+    .center-container { display: flex; justify-content: center; align-items: center; }
+
+    #dashboardContent, #emptyState { display: none; }
+
+    .metric-badge {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 0.95rem;
+    }
+</style>
 
 </head>
 <body>
 
-<!-- HEADER -->
 <nav class="navbar navbar-global d-flex justify-content-between align-items-center">
     <div class="d-flex align-items-center">
-        <i class="bi bi-eye fs-3 me-2" role="img" aria-label="ícono de ojo"></i>
+        <i class="bi bi-eye-fill fs-3 me-2 text-primary"></i>
         <span class="brand-text">Panel del Usuario</span>
     </div>
-
-    <button class="btn-logout" onclick="cerrarSesion()">Cerrar sesión</button>
+    <div class="d-flex align-items-center gap-3">
+        <span id="userName" class="text-muted fw-bold d-none d-md-block">Cargando...</span>
+        <button class="btn btn-logout btn-sm" onclick="cerrarSesion()">
+            <i class="bi bi-box-arrow-right"></i> Salir
+        </button>
+    </div>
 </nav>
 
-<!-- CONTENIDO -->
 <div class="container py-4">
 
-    <div class="row g-4">
-
-        <div class="col-md-4">
-            <div class="metric-card text-center">
-                <p class="fw-semibold fs-5 mb-1">Promedio Fatiga Inicial</p>
-                <p class="fw-bold fs-1 text-warning">64%</p>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="metric-card text-center">
-                <p class="fw-semibold fs-5 mb-1">Promedio Fatiga Final</p>
-                <p class="fw-bold fs-1" style="color:#652DFF;">23%</p>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="metric-card text-center">
-                <p class="fw-semibold fs-5 mb-1">Promedio Reducción</p>
-                <p class="fw-bold fs-1 text-success">40%</p>
-            </div>
-        </div>
-
-    </div>
-
-    <!-- HISTORIAL -->
-    <div class="dashboard-box mt-5">
-        <h4 class="fw-bold mb-3">Historial de Sesiones</h4>
-
-        <div class="table-responsive">
-            <table class="table table-hover text-center align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th>Fecha</th>
-                        <th>Fatiga Inicial</th>
-                        <th>Fatiga Final</th>
-                        <th>Reducción</th>
-                        <th>Detalle</th>
-                    </tr>
-                </thead>
-
-                <tbody id="tablaHistorial">
-                    <tr>
-                        <td>21/02/2025</td>
-                        <td>72%</td>
-                        <td>45%</td>
-                        <td>37%</td>
-                        <td><button class="btn btn-outline-primary btn-sm">Ver</button></td>
-                    </tr>
-
-                    <tr>
-                        <td>21/02/2025</td>
-                        <td>68%</td>
-                        <td>36%</td>
-                        <td>47%</td>
-                        <td><button class="btn btn-outline-primary btn-sm">Ver</button></td>
-                    </tr>
-                </tbody>
-            </table>
+    <!-- EMPTY STATE -->
+    <div id="emptyState" class="dashboard-box mt-5 text-center py-5">
+        <i class="bi bi-clipboard-data text-muted" style="font-size: 4rem;"></i>
+        <h3 class="fw-bold mt-3 text-secondary">Aún no has realizado ninguna sesión</h3>
+        <p class="text-muted mb-4">Completa tu primera evaluación para ver tus estadísticas aquí.</p>
+        <div class="center-container">
+            <a href="medicion_fatiga.html?tipo=inicial" class="text-decoration-none">
+                <button class="btn-actividades">Comenzar Evaluación Inicial</button>
+            </a>
         </div>
     </div>
 
-    <!-- ACTIVIDADES -->
-    <div class="center-container">
-    <a href="medicion_fatiga.html?tipo=inicial" class="text-decoration-none">
-        <button class="btn-actividades">Iniciar Actividades</button>
-    </a>
-</div>
+    <!-- DASHBOARD CON DATOS -->
+    <div id="dashboardContent">
+        <!-- Tarjetas de Promedios -->
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="metric-card card-warning text-center">
+                    <p class="fw-semibold fs-5 mb-1 text-muted">Promedio Fatiga Inicial</p>
+                    <p class="fw-bold fs-1 text-warning" id="avgIni">--%</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card card-primary text-center">
+                    <p class="fw-semibold fs-5 mb-1 text-muted">Promedio Fatiga Final</p>
+                    <p class="fw-bold fs-1" style="color:#652DFF;" id="avgFin">--%</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="metric-card card-success text-center">
+                    <p class="fw-semibold fs-5 mb-1 text-muted">Promedio Reducción</p>
+                    <p class="fw-bold fs-1 text-success" id="avgRed">--%</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabla Historial -->
+        <div class="dashboard-box mt-5">
+            <h4 class="fw-bold mb-3">Historial de Sesiones</h4>
+            <div class="table-responsive">
+                <table class="table table-hover text-center align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Fatiga Inicial</th>
+                            <th>Fatiga Final</th>
+                            <th>Reducción</th>
+                            <th>Detalle</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaHistorial">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Botón Nueva Sesión -->
+        <div class="center-container mt-5 text-center">
+            <a href="medicion_fatiga.html?tipo=inicial" class="text-decoration-none">
+                <button class="btn-actividades">Iniciar Nueva Sesión</button>
+            </a>
+        </div>
+    </div>
 
 </div>
 
+<!-- MODAL DE DETALLES -->
+<div class="modal fade" id="detalleModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-graph-up me-2"></i>Análisis Detallado de Sesión</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <!-- Gráfico PERCLOS -->
+                    <div class="col-md-6 mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">
+                            <i class="bi bi-eye-slash me-2"></i>PERCLOS (% Ojos Cerrados)
+                        </h6>
+                        <div style="height: 250px;">
+                            <canvas id="modalChartPerclos"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Gráfico Parpadeos -->
+                    <div class="col-md-6 mb-4">
+                        <h6 class="text-muted text-uppercase small mb-3">
+                            <i class="bi bi-lightning-charge me-2"></i>Frecuencia de Parpadeo
+                        </h6>
+                        <div style="height: 250px;">
+                            <canvas id="modalChartParpadeos"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Métricas Detalladas -->
+                    <div class="col-12">
+                        <h6 class="text-muted text-uppercase small mb-3">
+                            <i class="bi bi-clipboard-data me-2"></i>Métricas Comparativas
+                        </h6>
+                        <div class="row g-3">
+                            <!-- Bostezos -->
+                            <div class="col-md-3">
+                                <div class="p-3 bg-light rounded text-center">
+                                    <small class="d-block text-muted mb-2">
+                                        <i class="bi bi-emoji-dizzy"></i> Bostezos
+                                    </small>
+                                    <div class="d-flex justify-content-around align-items-center">
+                                        <span class="metric-badge bg-warning text-dark" id="modBostIni">0</span>
+                                        <i class="bi bi-arrow-right text-muted"></i>
+                                        <span class="metric-badge bg-primary text-white" id="modBostFin">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- KSS (Somnolencia) -->
+                            <div class="col-md-3">
+                                <div class="p-3 bg-light rounded text-center">
+                                    <small class="d-block text-muted mb-2">
+                                        <i class="bi bi-moon-stars"></i> KSS (Somnolencia)
+                                    </small>
+                                    <div class="d-flex justify-content-around align-items-center">
+                                        <span class="metric-badge bg-warning text-dark" id="modKssIni">0</span>
+                                        <i class="bi bi-arrow-right text-muted"></i>
+                                        <span class="metric-badge bg-primary text-white" id="modKssFin">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Velocidad Ocular -->
+                            <div class="col-md-3">
+                                <div class="p-3 bg-light rounded text-center">
+                                    <small class="d-block text-muted mb-2">
+                                        <i class="bi bi-speedometer2"></i> Velocidad Ocular
+                                    </small>
+                                    <div class="d-flex justify-content-around align-items-center">
+                                        <span class="metric-badge bg-warning text-dark" id="modVelIni">0</span>
+                                        <i class="bi bi-arrow-right text-muted"></i>
+                                        <span class="metric-badge bg-primary text-white" id="modVelFin">0</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Estado Final -->
+                            <div class="col-md-3">
+                                <div class="p-3 bg-light rounded text-center">
+                                    <small class="d-block text-muted mb-2">
+                                        <i class="bi bi-heart-pulse"></i> Estado Final
+                                    </small>
+                                    <span class="metric-badge" id="modEstado" style="font-size: 0.9rem;">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Información Adicional -->
+                    <div class="col-12 mt-4">
+                        <div class="alert alert-info d-flex align-items-center">
+                            <i class="bi bi-info-circle-fill fs-4 me-3"></i>
+                            <div>
+                                <strong>Nota:</strong> Los valores muestran la evolución desde la medición inicial (antes de las actividades) 
+                                hasta la medición final (después de realizar las tareas de lectura y ejercicios oculares).
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle me-2"></i>Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../../static/js/session.js"></script>
-<script> protegerRuta("usuario"); </script>
+
+<script>
+    protegerRuta("usuario"); 
+    let chartInstance = null;
+    let chartPerclos = null;
+    let chartParpadeos = null;
+
+    document.addEventListener("DOMContentLoaded", async () => {
+        const usuarioStr = localStorage.getItem('usuario') || sessionStorage.getItem('usuario');
+        if (!usuarioStr) return; 
+        const usuario = JSON.parse(usuarioStr);
+        document.getElementById('userName').innerText = `${usuario.nombre} ${usuario.apellido}`;
+
+        try {
+            const response = await fetch('http://localhost:8000/get-user-history', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ usuario_id: usuario.id })
+            });
+
+            if (!response.ok) throw new Error("Error en servidor");
+            const data = await response.json();
+
+            if (data.empty) {
+                document.getElementById('emptyState').style.display = 'block';
+                document.getElementById('dashboardContent').style.display = 'none';
+            } else {
+                document.getElementById('emptyState').style.display = 'none';
+                document.getElementById('dashboardContent').style.display = 'block';
+                llenarDashboard(data);
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert("No se pudo cargar el historial.");
+        }
+    });
+
+    function llenarDashboard(data) {
+        document.getElementById('avgIni').innerText = data.promedios.inicial + "%";
+        document.getElementById('avgFin').innerText = data.promedios.final + "%";
+        document.getElementById('avgRed').innerText = data.promedios.reduccion + "%";
+
+        const tbody = document.getElementById('tablaHistorial');
+        tbody.innerHTML = "";
+
+        data.historial.forEach(sesion => {
+            const reduccion = sesion.porcentaje_reduccion;
+            const esMejora = reduccion > 0;
+            const claseColor = esMejora ? "text-success" : "text-danger";
+            const signo = esMejora ? "-" : "+";
+
+            const row = `
+                <tr>
+                    <td>${sesion.fecha}</td>
+                    <td><span class="badge bg-warning text-dark rounded-pill px-3">${sesion.inicial}%</span></td>
+                    <td><span class="badge text-white rounded-pill px-3" style="background-color:#652DFF;">${sesion.final}%</span></td>
+                    <td class="${claseColor} fw-bold">${signo}${Math.abs(reduccion)}%</td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm rounded-pill" onclick="abrirModal(${sesion.sesion_id})">
+                            <i class="bi bi-eye me-1"></i>Ver
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+
+    async function abrirModal(sesionId) {
+        try {
+            const response = await fetch('http://localhost:8000/get-session-details', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ sesion_id: sesionId })
+            });
+            const datos = await response.json();
+
+            if (!datos.INICIAL || !datos.FINAL) {
+                alert("Datos incompletos en esta sesión.");
+                return;
+            }
+
+            // Llenar Badges
+            document.getElementById('modBostIni').innerText = datos.INICIAL.num_bostezos;
+            document.getElementById('modBostFin').innerText = datos.FINAL.num_bostezos;
+            document.getElementById('modKssIni').innerText = datos.INICIAL.nivel_subjetivo;
+            document.getElementById('modKssFin').innerText = datos.FINAL.nivel_subjetivo;
+            document.getElementById('modVelIni').innerText = parseFloat(datos.INICIAL.velocidad_ocular).toFixed(1);
+            document.getElementById('modVelFin').innerText = parseFloat(datos.FINAL.velocidad_ocular).toFixed(1);
+
+            // Estado Final
+            const estadoBadge = document.getElementById('modEstado');
+            const esFatiga = datos.FINAL.estado_fatiga && datos.FINAL.estado_fatiga.toLowerCase().includes('fatiga');
+            estadoBadge.innerText = esFatiga ? "FATIGA DETECTADA" : "ESTADO NORMAL";
+            estadoBadge.className = esFatiga ? "metric-badge bg-danger text-white" : "metric-badge bg-success text-white";
+
+            // Gráfico PERCLOS
+            const ctxPerclos = document.getElementById('modalChartPerclos').getContext('2d');
+            if (chartPerclos) chartPerclos.destroy();
+            chartPerclos = new Chart(ctxPerclos, {
+                type: 'bar',
+                data: {
+                    labels: ['Inicial', 'Final'],
+                    datasets: [{
+                        label: 'PERCLOS (%)',
+                        data: [parseFloat(datos.INICIAL.perclos), parseFloat(datos.FINAL.perclos)],
+                        backgroundColor: ['rgba(255, 193, 7, 0.7)', 'rgba(101, 45, 255, 0.7)'],
+                        borderRadius: 8,
+                        borderWidth: 2,
+                        borderColor: ['#ffc107', '#652DFF']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'PERCLOS: ' + context.parsed.y.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true, 
+                            max: 100,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        } 
+                    }
+                }
+            });
+
+            // Gráfico Parpadeos
+            const ctxParp = document.getElementById('modalChartParpadeos').getContext('2d');
+            if (chartParpadeos) chartParpadeos.destroy();
+            chartParpadeos = new Chart(ctxParp, {
+                type: 'line',
+                data: {
+                    labels: ['Inicial', 'Final'],
+                    datasets: [{
+                        label: 'Parpadeos/min',
+                        data: [datos.INICIAL.parpadeos, datos.FINAL.parpadeos],
+                        borderColor: '#652DFF',
+                        backgroundColor: 'rgba(101, 45, 255, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#652DFF',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Parpadeos: ' + context.parsed.y + '/min';
+                                }
+                            }
+                        }
+                    },
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '/min';
+                                }
+                            }
+                        } 
+                    }
+                }
+            });
+
+            // Mostrar Modal
+            const modal = new bootstrap.Modal(document.getElementById('detalleModal'));
+            modal.show();
+
+        } catch (e) { 
+            console.error(e); 
+            alert("Error al cargar detalles de la sesión.");
+        }
+    }
+
+    function cerrarSesion() {
+        sessionStorage.clear();
+        localStorage.clear();
+        window.location.href = '../login.html';
+    }
+</script>
 
 </body>
 </html>

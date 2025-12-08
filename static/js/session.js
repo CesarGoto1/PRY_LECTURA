@@ -13,12 +13,12 @@ function protegerRuta(rolRequerido){
     }
 
     if(rolRequerido === "admin" && usuario.rol !== "admin"){
-        window.location.href = "/templates/usuario/index.html";
+        window.location.href = "/templates/admin/index.html";
         return;
     }
 
     if(rolRequerido === "usuario" && usuario.rol !== "usuario"){
-        window.location.href = "/templates/admin/index.html";
+        window.location.href = "/templates/usuario/index.html";
         return;
     }
 }

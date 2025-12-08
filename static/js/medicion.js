@@ -15,7 +15,7 @@ const continueBtn = document.getElementById('continueBtn');
 if (TIPO_ACTUAL === 'final') {
     if(pageTitle) pageTitle.textContent = "Reconocimiento Final de Fatiga";
     if(continueBtn) {
-        continueBtn.href = "/templates/usuario/resultados_globales.html"; // Ruta a resultados finales
+        continueBtn.href = "/templates/usuario/index.html"; // Ruta a resultados finales
         continueBtn.textContent = "Ver Informe Final";
     }
 } else {

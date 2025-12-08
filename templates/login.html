@@ -133,12 +133,12 @@
       msg.textContent = "Ingreso exitoso";
       msg.className = "success";
 
-      // Redirección SEGÚN rol
+            // Redirección SEGÚN rol
       setTimeout(() => {
         if(data.usuario.rol === "admin"){
-          location.href = "/templates/admin/index.html";
+          location.href = "admin/index.html";  // Ruta relativa
         } else {
-          location.href = "/templates/usuario/index.html";
+          location.href = "usuario/index.html";  // Ruta relativa
         }
       }, 700);
 
