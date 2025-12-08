@@ -185,18 +185,34 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../../static/js/session.js"></script>
+<script src="../../static/js/user.js"></script>
+
 
 <script>
-    protegerRuta("usuario"); 
+    // ========================================================
+    // 1. Validar el usuario desde LOCALSTORAGE (única fuente)
+    // ========================================================
+    function obtenerUsuario() {
+        const usuarioStr = localStorage.getItem("usuario");
+        if (!usuarioStr) {
+            window.location.href = "../login.html";
+            throw new Error("Usuario no autenticado");
+        }
+        return JSON.parse(usuarioStr);
+    }
+
     let chartInstance = null;
     let chartPerclos = null;
     let chartParpadeos = null;
 
+    // ========================================================
+    // 2. Cargar datos al iniciar
+    // ========================================================
     document.addEventListener("DOMContentLoaded", async () => {
-        const usuarioStr = localStorage.getItem('usuario') || sessionStorage.getItem('usuario');
-        if (!usuarioStr) return; 
-        const usuario = JSON.parse(usuarioStr);
-        document.getElementById('userName').innerText = `${usuario.nombre} ${usuario.apellido}`;
+        const usuario = obtenerUsuario();
+
+        document.getElementById('userName').innerText =
+            `${usuario.nombre} ${usuario.apellido}`;
 
         try {
             const response = await fetch('http://localhost:8000/get-user-history', {
@@ -206,6 +222,7 @@
             });
 
             if (!response.ok) throw new Error("Error en servidor");
+
             const data = await response.json();
 
             if (data.empty) {
@@ -223,6 +240,9 @@
         }
     });
 
+    // ========================================================
+    // 3. Llenar dashboard
+    // ========================================================
     function llenarDashboard(data) {
         document.getElementById('avgIni').innerText = data.promedios.inicial + "%";
         document.getElementById('avgFin').innerText = data.promedios.final + "%";
@@ -254,6 +274,9 @@
         });
     }
 
+    // ========================================================
+    // 4. Abrir modal con detalles
+    // ========================================================
     async function abrirModal(sesionId) {
         try {
             const response = await fetch('http://localhost:8000/get-session-details', {
@@ -261,6 +284,7 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ sesion_id: sesionId })
             });
+
             const datos = await response.json();
 
             if (!datos.INICIAL || !datos.FINAL) {
@@ -268,7 +292,7 @@
                 return;
             }
 
-            // Llenar Badges
+            // Llenar badges
             document.getElementById('modBostIni').innerText = datos.INICIAL.num_bostezos;
             document.getElementById('modBostFin').innerText = datos.FINAL.num_bostezos;
             document.getElementById('modKssIni').innerText = datos.INICIAL.nivel_subjetivo;
@@ -276,17 +300,18 @@
             document.getElementById('modVelIni').innerText = parseFloat(datos.INICIAL.velocidad_ocular).toFixed(1);
             document.getElementById('modVelFin').innerText = parseFloat(datos.FINAL.velocidad_ocular).toFixed(1);
 
-            // Estado Final
             const estadoBadge = document.getElementById('modEstado');
-            const esFatiga = datos.FINAL.estado_fatiga && datos.FINAL.estado_fatiga.toLowerCase().includes('fatiga');
-            estadoBadge.innerText = esFatiga ? "FATIGA DETECTADA" : "ESTADO NORMAL";
-            estadoBadge.className = esFatiga ? "metric-badge bg-danger text-white" : "metric-badge bg-success text-white";
+            const esFatiga = datos.FINAL.estado_fatiga.toLowerCase().includes('fatiga');
 
-            // --- CONFIGURACIÓN DE COLORES DE GRÁFICOS (ADAPTADO AL ADMIN) ---
-            const colorAdminInicial = '#FFC300'; // Amarillo
-            const colorAdminFinal = '#4DA3FF';   // Azul
+            estadoBadge.innerText = esFatiga ? "FATIGA DETECTADA" : "ESTADO NORMAL";
+            estadoBadge.className = esFatiga
+                ? "metric-badge bg-danger text-white"
+                : "metric-badge bg-success text-white";
 
             // Gráfico PERCLOS
+            const colorInicial = "#FFC300";
+            const colorFinal = "#4DA3FF";
+
             const ctxPerclos = document.getElementById('modalChartPerclos').getContext('2d');
             if (chartPerclos) chartPerclos.destroy();
             chartPerclos = new Chart(ctxPerclos, {
@@ -294,20 +319,12 @@
                 data: {
                     labels: ['Inicial', 'Final'],
                     datasets: [{
-                        label: 'PERCLOS (%)',
-                        data: [parseFloat(datos.INICIAL.perclos), parseFloat(datos.FINAL.perclos)],
-                        // Colores actualizados
-                        backgroundColor: [colorAdminInicial, colorAdminFinal],
-                        borderRadius: 5,
-                        borderWidth: 0
+                        data: [datos.INICIAL.perclos, datos.FINAL.perclos],
+                        backgroundColor: [colorInicial, colorFinal],
+                        borderRadius: 5
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, max: 100 } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
             // Gráfico Parpadeos
@@ -318,40 +335,34 @@
                 data: {
                     labels: ['Inicial', 'Final'],
                     datasets: [{
-                        label: 'Parpadeos/min',
                         data: [datos.INICIAL.parpadeos, datos.FINAL.parpadeos],
-                        // Color actualizado al Azul Admin
-                        borderColor: colorAdminFinal,
-                        backgroundColor: 'rgba(77, 163, 255, 0.1)', // #4DA3FF con transparencia
-                        tension: 0.3,
+                        borderColor: colorFinal,
                         fill: true,
-                        pointRadius: 5,
-                        pointBackgroundColor: colorAdminFinal
+                        backgroundColor: "rgba(77,163,255,0.2)",
+                        tension: 0.3
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
             });
 
-            const modal = new bootstrap.Modal(document.getElementById('detalleModal'));
-            modal.show();
+            new bootstrap.Modal(document.getElementById('detalleModal')).show();
 
-        } catch (e) { 
-            console.error(e); 
+        } catch (e) {
+            console.error(e);
             alert("Error al cargar detalles de la sesión.");
         }
     }
 
+    // ========================================================
+    // 5. Cerrar sesión
+    // ========================================================
     function cerrarSesion() {
-        sessionStorage.clear();
         localStorage.clear();
-        window.location.href = '../login.html';
+        sessionStorage.clear();
+        window.location.href = "/templates/login.html";
     }
 </script>
+
 
 </body>
 </html>

@@ -27,34 +27,36 @@
 
     <div class="text-center mb-4">
         <h2 class="fw-bold">Dashboard General</h2>
-        <p class="text-muted">Resumen general del estado de los estudiantes</p>
+        <p class="text-muted">Resumen general del estado de monitoreo</p>
     </div>
 
+    <!-- MÉTRICAS GLOBALES -->
     <div class="row g-4">
 
         <div class="col-md-4">
             <div class="metric-card text-center">
                 <p class="text-muted mb-1 fw-semibold">Estudiantes Monitoreados</p>
-                <h2 class="text-primary fw-bold">12</h2>
+                <h2 class="text-primary fw-bold" id="totalEstudiantes">--</h2>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="metric-card text-center">
                 <p class="text-muted mb-1 fw-semibold">Fatiga Inicial Promedio</p>
-                <h2 class="text-warning fw-bold">64%</h2>
+                <h2 class="text-warning fw-bold" id="fatigaInicialProm">--%</h2>
             </div>
         </div>
 
         <div class="col-md-4">
             <div class="metric-card text-center">
                 <p class="text-muted mb-1 fw-semibold">Reducción Promedio</p>
-                <h2 class="text-success fw-bold">40%</h2>
+                <h2 class="text-success fw-bold" id="reduccionProm">--%</h2>
             </div>
         </div>
 
     </div>
 
+    <!-- GRÁFICOS -->
     <div class="row g-4 mt-3">
 
         <div class="col-md-6">
@@ -73,6 +75,7 @@
 
     </div>
 
+    <!-- TABLA GENERAL -->
     <div class="dashboard-box mt-4">
         <h4 class="fw-bold mb-3">Historial de Usuarios</h4>
 
@@ -89,35 +92,7 @@
                     </tr>
                 </thead>
 
-                <tbody id="tablaUsuarios">
-
-                    <tr>
-                        <td>Carlos Pérez</td>
-                        <td>2025-01-17</td>
-                        <td>72%</td>
-                        <td>45%</td>
-                        <td class="text-success">37%</td>
-                        <td>
-                            <a href="details.html" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye"></i> Ver
-                            </a>
-                        </td>
-                    </tr>
-
-                    <tr>
-                        <td>Andrea López</td>
-                        <td>2025-01-10</td>
-                        <td>68%</td>
-                        <td>36%</td>
-                        <td class="text-success">47%</td>
-                        <td>
-                            <a href="details.html" class="btn btn-sm btn-outline-primary">
-                                <i class="fas fa-eye"></i> Ver
-                            </a>
-                        </td>
-                    </tr>
-
-                </tbody>
+                <tbody id="tablaUsuarios"></tbody>
             </table>
         </div>
     </div>
@@ -130,32 +105,6 @@
 
 <script src="../../static/js/session.js"></script>
 <script src="../../static/js/admin.js"></script>
-<script> protegerRuta("admin"); </script>
-
-<script>
-new Chart(document.getElementById('graficoFatiga'), {
-  type: 'bar',
-  data: {
-    labels: ['Inicial', 'Final'],
-    datasets: [{
-      label: 'Promedio (%)',
-      data: [64, 38],
-      backgroundColor: ['#FFC300','#4DA3FF']
-    }]
-  }
-});
-
-new Chart(document.getElementById('graficoRadar'), {
-  type: 'radar',
-  data: {
-    labels: ['EAR', 'Parpadeos/min', 'Mirada desviada', 'Cierre prolongado'],
-    datasets: [
-      { label: 'Inicial', data: [0.21, 9, 25, 10], borderColor:'#FF9800', borderWidth:2 },
-      { label: 'Final', data: [0.28, 15, 12, 4], borderColor:'#4DA3FF', borderWidth:2 }
-    ]
-  }
-});
-</script>
 
 </body>
 </html>

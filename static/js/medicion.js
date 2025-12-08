@@ -344,22 +344,29 @@ window.guardarYContinuar = async function() {
     if (yawnCounter >= 2) { esFatiga = true; razones.push("Bostezos frecuentes"); }
     if (parseInt(kssValue) >= 7) razones.push("Fatiga subjetiva alta");
 
-    // --- PREPARAR PAYLOAD ---
-    // Obtener ID usuario de SessionStorage o Default
-    const storedUser = JSON.parse(sessionStorage.getItem('usuario')) || { id: 1 };
-    
-    const payload = {
-        usuario_id: storedUser.id,
-        tipo_medicion: TIPO_ACTUAL, // 'inicial' o 'final'
-        sebr: SEBR,
-        perclos: parseFloat(PERCLOS.toFixed(2)),
-        pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
-        tiempo_cierre: parseFloat(accumulatedClosureTime.toFixed(2)),
-        num_bostezos: yawnCounter,
-        velocidad_ocular: parseFloat(avgVelocity.toFixed(2)),
-        nivel_subjetivo: parseInt(kssValue),
-        es_fatiga: esFatiga
-    };
+// --- PREPARAR PAYLOAD ---
+// Obtener ID usuario desde localStorage (login usa localStorage)
+const storedUser = JSON.parse(localStorage.getItem('usuario'));
+
+if (!storedUser) {
+    alert("Debes iniciar sesión antes de realizar la medición.");
+    window.location.href = "/templates/login.html";
+    return;
+}
+
+const payload = {
+    usuario_id: storedUser.id,
+    tipo_medicion: TIPO_ACTUAL, // 'inicial' o 'final'
+    sebr: SEBR,
+    perclos: parseFloat(PERCLOS.toFixed(2)),
+    pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
+    tiempo_cierre: parseFloat(accumulatedClosureTime.toFixed(2)),
+    num_bostezos: yawnCounter,
+    velocidad_ocular: parseFloat(avgVelocity.toFixed(2)),
+    nivel_subjetivo: parseInt(kssValue),
+    es_fatiga: esFatiga
+};
+
 
     console.log("Enviando datos:", payload);
 
