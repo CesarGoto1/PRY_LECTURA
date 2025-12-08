@@ -61,7 +61,7 @@ def startup():
             "port": int(os.getenv("DB_PORT", "5432")),
             "database": os.getenv("DB_NAME", "pry_lectura"),
             "user": os.getenv("DB_USER", "postgres"),
-            "password": os.getenv("DB_PASS", "admin"),
+            "password": os.getenv("DB_PASS", "123"),
         }
         app.state.db_pool = pool.SimpleConnectionPool(1, 10, **db_config)
         log.info("Conexión a base de datos establecida.")
@@ -172,82 +172,86 @@ def login_user(data: Login):
 @app.post("/save-fatigue")
 def save_fatigue(data: FatigueResult):
     conn = None
+    mensaje_ui = None 
+    
     try:
         conn = _get_conn_from_pool()
         cur = conn.cursor(cursor_factory=extras.RealDictCursor)
 
-        # 1. Buscar sesión activa del usuario
-        cur.execute(
-            """
-            SELECT id
-            FROM sesiones
-            WHERE usuario_id = %s AND fecha_fin IS NULL
-            ORDER BY id DESC
-            LIMIT 1
-            """,
-            (data.usuario_id,),
-        )
+        # ... (Lógica de búsqueda/creación de sesión IGUAL QUE ANTES) ...
+        cur.execute("SELECT id FROM sesiones WHERE usuario_id = %s AND fecha_fin IS NULL ORDER BY id DESC LIMIT 1", (data.usuario_id,))
         row = cur.fetchone()
-
         if row:
             sesion_id = row["id"]
         else:
-            cur.execute(
-                "INSERT INTO sesiones (usuario_id, fecha_inicio) VALUES (%s, NOW()) RETURNING id",
-                (data.usuario_id,),
-            )
+            cur.execute("INSERT INTO sesiones (usuario_id, fecha_inicio) VALUES (%s, NOW()) RETURNING id", (data.usuario_id,))
             sesion_id = cur.fetchone()["id"]
 
         etapa_db = "INICIAL" if data.tipo_medicion.lower() == "inicial" else "FINAL"
         estado_txt = "FATIGA" if data.es_fatiga else "NORMAL"
         nivel_val = 1 if data.es_fatiga else 0
 
-        # 2. Insertar medición
+        # 1. INSERTAR MEDICIÓN
+        # Al hacer este insert (o el update de abajo), tu TRIGGER se dispara en la BD
         query = """
             INSERT INTO mediciones (
                 sesion_id, etapa, parpadeos, perclos, pct_incompletos,
                 tiempo_cierre, num_bostezos, velocidad_ocular,
                 nivel_subjetivo, nivel_fatiga, estado_fatiga, ear_promedio
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 0)
         """
-        cur.execute(
-            query,
-            (
-                sesion_id,
-                etapa_db,
-                data.sebr,
-                data.perclos,
-                data.pct_incompletos,
-                data.tiempo_cierre,
-                data.num_bostezos,
-                data.velocidad_ocular,
-                data.nivel_subjetivo,
-                nivel_val,
-                estado_txt,
-            ),
-        )
+        cur.execute(query, (
+            sesion_id, etapa_db, data.sebr, data.perclos, data.pct_incompletos,
+            data.tiempo_cierre, data.num_bostezos, data.velocidad_ocular,
+            data.nivel_subjetivo, nivel_val, estado_txt
+        ))
 
-        # 3. Cerrar sesión si es final
         if etapa_db == "FINAL":
-            cur.execute(
-                """
-                UPDATE sesiones
-                SET fecha_fin = NOW(), actividades_completadas = true
-                WHERE id = %s
-                """,
-                (sesion_id,),
-            )
+            # 2. CERRAR SESIÓN
+            cur.execute("UPDATE sesiones SET fecha_fin = NOW(), actividades_completadas = true WHERE id = %s", (sesion_id,))
+            
+            # 3. LEER EL DATO DEL TRIGGER
+            # Asumimos que el trigger ya se ejecutó tras el INSERT o UPDATE anterior.
+            # Consultamos directamente la tabla 'comparaciones'.
+            cur.execute("""
+                SELECT porcentaje_reduccion 
+                FROM comparaciones 
+                WHERE sesion_id = %s
+            """, (sesion_id,))
+            
+            row_comp = cur.fetchone()
+
+            if row_comp:
+                # Recuperamos el valor calculado por la Base de Datos
+                porcentaje_reduccion = float(row_comp['porcentaje_reduccion'])
+
+                # 4. GENERAR MENSAJE PARA EL USUARIO
+                # Usamos el dato de la BD para armar el texto
+                if data.es_fatiga and porcentaje_reduccion > 0:
+                    mensaje_ui = f"Diagnóstico: FATIGA PERSISTENTE (Se redujo en un {porcentaje_reduccion}%)"
+                
+                elif data.es_fatiga and porcentaje_reduccion <= 0:
+                    mensaje_ui = "Diagnóstico: FATIGA DETECTADA (El nivel aumentó o se mantiene)"
+                
+                elif not data.es_fatiga and porcentaje_reduccion > 0:
+                     mensaje_ui = f"Diagnóstico: RECUPERADO (Mejora del {porcentaje_reduccion}%)"
+                
+                else:
+                     mensaje_ui = "Diagnóstico: ESTADO NORMAL"
 
         conn.commit()
-        return {"mensaje": f"Datos guardados exitosamente como {etapa_db}"}
+        
+        return {
+            "mensaje": f"Datos guardados exitosamente como {etapa_db}",
+            "diagnostico_personalizado": mensaje_ui
+        }
+
     except Exception as e:
-        if conn:
-            conn.rollback()
+        if conn: conn.rollback()
+        # logging.exception("Error guardando fatiga") # Descomentar si usas logs
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if conn:
-            _put_conn_back(conn)
+        if conn: _put_conn_back(conn)
 
 # --- ENDPOINT: HISTORIAL DIRECTO DE BD ---
 @app.post("/get-user-history")
