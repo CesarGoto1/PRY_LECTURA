@@ -3,6 +3,8 @@ import logging
 from fastapi import FastAPI, HTTPException
 from starlette.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import httpx
+import json
 
 import psycopg2
 from psycopg2 import pool, extras
@@ -113,6 +115,7 @@ def register_user(data: Register):
         conn.commit()
         return {"mensaje": "Usuario registrado correctamente"}
     except Exception:
+        log.exception("Error en /register") # Loguear el traceback completo
         if conn:
             conn.rollback()
         raise HTTPException(status_code=500, detail="Error servidor")
@@ -170,15 +173,15 @@ def login_user(data: Login):
 
 # --- ENDPOINTS DATOS ---
 @app.post("/save-fatigue")
-def save_fatigue(data: FatigueResult):
+async def save_fatigue(data: FatigueResult):
     conn = None
-    mensaje_ui = None 
+    mensaje_ui = None
+    diagnostico_ia = None
     
     try:
         conn = _get_conn_from_pool()
         cur = conn.cursor(cursor_factory=extras.RealDictCursor)
 
-        # ... (Lógica de búsqueda/creación de sesión IGUAL QUE ANTES) ...
         cur.execute("SELECT id FROM sesiones WHERE usuario_id = %s AND fecha_fin IS NULL ORDER BY id DESC LIMIT 1", (data.usuario_id,))
         row = cur.fetchone()
         if row:
@@ -191,8 +194,6 @@ def save_fatigue(data: FatigueResult):
         estado_txt = "FATIGA" if data.es_fatiga else "NORMAL"
         nivel_val = 1 if data.es_fatiga else 0
 
-        # 1. INSERTAR MEDICIÓN
-        # Al hacer este insert (o el update de abajo), tu TRIGGER se dispara en la BD
         query = """
             INSERT INTO mediciones (
                 sesion_id, etapa, parpadeos, perclos, pct_incompletos,
@@ -207,48 +208,53 @@ def save_fatigue(data: FatigueResult):
         ))
 
         if etapa_db == "FINAL":
-            # 2. CERRAR SESIÓN
             cur.execute("UPDATE sesiones SET fecha_fin = NOW(), actividades_completadas = true WHERE id = %s", (sesion_id,))
             
-            # 3. LEER EL DATO DEL TRIGGER
-            # Asumimos que el trigger ya se ejecutó tras el INSERT o UPDATE anterior.
-            # Consultamos directamente la tabla 'comparaciones'.
-            cur.execute("""
-                SELECT porcentaje_reduccion 
-                FROM comparaciones 
-                WHERE sesion_id = %s
-            """, (sesion_id,))
-            
+            cur.execute("SELECT porcentaje_reduccion FROM comparaciones WHERE sesion_id = %s", (sesion_id,))
             row_comp = cur.fetchone()
 
             if row_comp:
-                # Recuperamos el valor calculado por la Base de Datos
                 porcentaje_reduccion = float(row_comp['porcentaje_reduccion'])
-
-                # 4. GENERAR MENSAJE PARA EL USUARIO
-                # Usamos el dato de la BD para armar el texto
                 if data.es_fatiga and porcentaje_reduccion > 0:
                     mensaje_ui = f"Diagnóstico: FATIGA PERSISTENTE (Se redujo en un {porcentaje_reduccion}%)"
-                
                 elif data.es_fatiga and porcentaje_reduccion <= 0:
                     mensaje_ui = "Diagnóstico: FATIGA DETECTADA (El nivel aumentó o se mantiene)"
-                
                 elif not data.es_fatiga and porcentaje_reduccion > 0:
-                     mensaje_ui = f"Diagnóstico: RECUPERADO (Mejora del {porcentaje_reduccion}%)"
-                
+                    mensaje_ui = f"Diagnóstico: RECUPERADO (Mejora del {porcentaje_reduccion}%)"
                 else:
-                     mensaje_ui = "Diagnóstico: ESTADO NORMAL"
+                    mensaje_ui = "Diagnóstico: ESTADO NORMAL"
+
+            # --- INICIO: LLAMADA A N8N Y GUARDADO DE DIAGNÓSTICO IA ---
+            try:
+                n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/visual-fatigue-diagnosis") # URL por defecto para prueba
+                if n8n_webhook_url:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.post(n8n_webhook_url, json=data.dict(), timeout=30)
+                        response.raise_for_status()
+                        diagnostico_ia = response.json()
+                        
+                        cur.execute(
+                            "INSERT INTO diagnosticos_ia (sesion_id, diagnostico_json) VALUES (%s, %s)",
+                            (sesion_id, json.dumps(diagnostico_ia))
+                        )
+                else:
+                    log.warning("N8N_WEBHOOK_URL no está configurada. Saltando diagnóstico de IA.")
+
+            except Exception as e:
+                log.error(f"Error al contactar o guardar el diagnóstico de IA: {e}")
+            # --- FIN: LLAMADA A N8N ---
 
         conn.commit()
         
         return {
             "mensaje": f"Datos guardados exitosamente como {etapa_db}",
-            "diagnostico_personalizado": mensaje_ui
+            "diagnostico_personalizado": mensaje_ui,
+            "diagnostico_detallado_ia": diagnostico_ia
         }
 
     except Exception as e:
         if conn: conn.rollback()
-        # logging.exception("Error guardando fatiga") # Descomentar si usas logs
+        log.exception("Error en save_fatigue")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         if conn: _put_conn_back(conn)
@@ -267,14 +273,14 @@ def get_user_history(data: DashboardRequest):
                 TO_CHAR(s.fecha_inicio, 'DD/MM/YYYY HH24:MI') as fecha,
                 c.porcentaje_reduccion,
                 m_ini.perclos as inicial,
-                m_fin.perclos as final
+                m_fin.perclos as final,
+                dia.diagnostico_json -- Se añade esta línea
             FROM sesiones s
-            JOIN comparaciones c ON c.sesion_id = s.id
-            JOIN mediciones m_ini
-                ON m_ini.sesion_id = s.id AND m_ini.etapa = 'INICIAL'
-            JOIN mediciones m_fin
-                ON m_fin.sesion_id = s.id AND m_fin.etapa = 'FINAL'
-            WHERE s.usuario_id = %s
+            LEFT JOIN comparaciones c ON c.sesion_id = s.id
+            LEFT JOIN mediciones m_ini ON m_ini.sesion_id = s.id AND m_ini.etapa = 'INICIAL'
+            LEFT JOIN mediciones m_fin ON m_fin.sesion_id = s.id AND m_fin.etapa = 'FINAL'
+            LEFT JOIN diagnosticos_ia dia ON dia.sesion_id = s.id -- Se añade esta línea
+            WHERE s.usuario_id = %s AND s.fecha_fin IS NOT NULL
             ORDER BY s.fecha_inicio DESC
         """
         cur.execute(query, (data.usuario_id,))
@@ -283,15 +289,16 @@ def get_user_history(data: DashboardRequest):
         if not historial:
             return {"empty": True}
 
-        count = len(historial)
-        total_ini = sum(float(h["inicial"]) for h in historial)
-        total_fin = sum(float(h["final"]) for h in historial)
-        total_red = sum(float(h["porcentaje_reduccion"]) for h in historial)
-
+        # El cálculo de promedios se mantiene, pero hay que manejar posibles nulos
+        count_red = sum(1 for h in historial if h.get("porcentaje_reduccion") is not None)
+        total_ini = sum(float(h["inicial"]) for h in historial if h.get("inicial") is not None)
+        total_fin = sum(float(h["final"]) for h in historial if h.get("final") is not None)
+        total_red = sum(float(h["porcentaje_reduccion"]) for h in historial if h.get("porcentaje_reduccion") is not None)
+        
         promedios = {
-            "inicial": round(total_ini / count, 1),
-            "final": round(total_fin / count, 1),
-            "reduccion": round(total_red / count, 1),
+            "inicial": round(total_ini / len(historial), 1) if historial else 0,
+            "final": round(total_fin / len(historial), 1) if historial else 0,
+            "reduccion": round(total_red / count_red, 1) if count_red > 0 else 0,
         }
 
         return {"empty": False, "historial": historial, "promedios": promedios}
@@ -301,6 +308,116 @@ def get_user_history(data: DashboardRequest):
     finally:
         if conn:
             _put_conn_back(conn)
+
+
+# --- ENDPOINT: OBTENER O CREAR DIAGNÓSTICO IA ---
+@app.post("/get-or-create-diagnosis")
+async def get_or_create_diagnosis(data: DetailRequest):
+    conn = None
+    try:
+        conn = _get_conn_from_pool()
+        cur = conn.cursor(cursor_factory=extras.RealDictCursor)
+
+        # 1. Verificar si ya existe un diagnóstico
+        cur.execute("SELECT diagnostico_json FROM diagnosticos_ia WHERE sesion_id = %s", (data.sesion_id,))
+        existing_diagnosis = cur.fetchone()
+        if existing_diagnosis and existing_diagnosis['diagnostico_json']:
+            log.info(f"Devolviendo diagnóstico existente para sesion_id: {data.sesion_id}")
+            return existing_diagnosis['diagnostico_json']
+
+        # 2. Si no existe, obtener los datos de ambas mediciones (INICIAL y FINAL)
+        log.info(f"No se encontró diagnóstico. Generando uno nuevo para sesion_id: {data.sesion_id}")
+        query = """
+            SELECT
+                m.etapa,
+                s.usuario_id,
+                m.parpadeos AS sebr,
+                m.perclos,
+                m.tiempo_cierre,
+                m.num_bostezos,
+                m.velocidad_ocular,
+                m.nivel_subjetivo
+            FROM mediciones m
+            JOIN sesiones s ON m.sesion_id = s.id
+            WHERE m.sesion_id = %s AND (m.etapa = 'INICIAL' OR m.etapa = 'FINAL')
+        """
+        cur.execute(query, (data.sesion_id,))
+        measurements = cur.fetchall()
+        
+        initial_data = next((m for m in measurements if m['etapa'] == 'INICIAL'), None)
+        final_data = next((m for m in measurements if m['etapa'] == 'FINAL'), None)
+
+        if not initial_data or not final_data:
+            raise HTTPException(status_code=404, detail="Datos de medición INICIAL o FINAL incompletos para esta sesión.")
+
+        # 3. Construir explícitamente el payload para n8n, convirtiendo el tipo Decimal a float para que sea serializable
+        payload_to_n8n = {
+            "inicial": {
+                "usuario_id": initial_data['usuario_id'],
+                "perclos": float(initial_data['perclos']),
+                "sebr": float(initial_data['sebr']),
+                "num_bostezos": initial_data['num_bostezos'],
+                "tiempo_cierre": float(initial_data['tiempo_cierre']),
+                "velocidad_ocular": float(initial_data['velocidad_ocular']),
+                "nivel_subjetivo": initial_data['nivel_subjetivo']
+            },
+            "final": {
+                "perclos": float(final_data['perclos']),
+                "sebr": float(final_data['sebr']),
+                "num_bostezos": final_data['num_bostezos'],
+                "tiempo_cierre": float(final_data['tiempo_cierre']),
+                "velocidad_ocular": float(final_data['velocidad_ocular']),
+                "nivel_subjetivo": final_data['nivel_subjetivo']
+            }
+        }
+        log.info(f"Enviando el siguiente payload a n8n: {json.dumps(payload_to_n8n, indent=2)}")
+
+        # 4. Llamar al webhook de n8n
+        n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/visual-fatigue-diagnosis")
+        if not n8n_webhook_url:
+            raise HTTPException(status_code=500, detail="La URL del webhook de N8N no está configurada.")
+
+        diagnostico_ia = None
+        async with httpx.AsyncClient() as client:
+            try:
+                response = await client.post(n8n_webhook_url, json=payload_to_n8n, timeout=60)
+                response.raise_for_status()
+                # n8n puede devolver una lista con un objeto, debemos manejar eso
+                responseData = response.json()
+                diagnostico_ia = responseData[0]['json'] if isinstance(responseData, list) and responseData and 'json' in responseData[0] else responseData
+            except httpx.RequestError as e:
+                log.error(f"Error al contactar con n8n: {e}")
+                raise HTTPException(status_code=503, detail="El servicio de diagnóstico de IA no está disponible o no respondió a tiempo.")
+            except httpx.HTTPStatusError as e:
+                log.error(f"Error de estado HTTP de n8n: {e.response.status_code} - {e.response.text}")
+                raise HTTPException(status_code=e.response.status_code, detail=f"Error del servicio de IA: {e.response.text}")
+
+        if not diagnostico_ia:
+            raise HTTPException(status_code=500, detail="El servicio de IA devolvió una respuesta vacía o inválida.")
+        
+        log.info("Diagnóstico de IA recibido exitosamente.")
+
+        # 5. Guardar el nuevo diagnóstico en la base de datos
+        cur.execute(
+            "INSERT INTO diagnosticos_ia (sesion_id, diagnostico_json) VALUES (%s, %s) ON CONFLICT (sesion_id) DO UPDATE SET diagnostico_json = EXCLUDED.diagnostico_json",
+            (data.sesion_id, json.dumps(diagnostico_ia))
+        )
+        conn.commit()
+        log.info(f"Diagnóstico para sesion_id: {data.sesion_id} guardado en la BD.")
+
+        return diagnostico_ia
+
+    except HTTPException:
+        if conn: conn.rollback()
+        raise
+    except Exception as e:
+        if conn: conn.rollback()
+        log.exception("Error crítico en get_or_create_diagnosis")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if conn:
+            _put_conn_back(conn)
+
 
 # --- ENDPOINT: DETALLE PARA GRÁFICOS ---
 @app.post("/get-session-details")

@@ -1,0 +1,147 @@
+{
+  "name": "Visual Fatigue Diagnosis Flow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "visual-fatigue-diagnosis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -320
+      ],
+      "webhookId": "a1b2c3d4-e5f6-a7b8-c9d0-e1f2a3b4c5d6",
+      "id": "140fa524-3c5b-49fc-b860-272cea36825b"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body }}",
+        "options": {
+          "systemMessage": "=**ROL Y TAREA PRINCIPAL:**\nEres un oftalmólogo experto, altamente especializado en el diagnóstico y análisis comparativo del estrés y la fatiga visual. Tu única tarea es analizar la evolución de los datos de fatiga de un paciente, comparando la **medición Inicial** con la **medición Final** tomadas en la misma sesión.\n\nTu objetivo es evaluar si hubo una mejora, empeoramiento o mantenimiento del estado de fatiga, e identificar la progresión de cada parámetro. Genera el diagnóstico exhaustivo y detallado **únicamente** en el formato JSON de salida estricto.\n\n---\n**DATOS DE ENTRADA PROPORCIONADOS (Variables de n8n):**\nEl modelo debe recibir y analizar los valores de estas variables para su diagnóstico.\n\n{\n   \"medicion_inicial\": {\n     \"usuario_id\": {{ $json.body.inicial.usuario_id }},\n     \"perclos\": {{ $json.body.inicial.perclos }},\n     \"sebr\": {{ $json.body.inicial.sebr }},\n     \"num_bostezos\": {{ $json.body.inicial.num_bostezos }},\n     \"tiempo_cierre\": {{ $json.body.inicial.tiempo_cierre }},\n     \"velocidad_ocular\": {{ $json.body.inicial.velocidad_ocular }},\n     \"nivel_subjetivo\": {{ $json.body.inicial.nivel_subjetivo }}\n   },\n   \"medicion_final\": {\n     \"perclos\": {{ $json.body.final.perclos }},\n     \"sebr\": {{ $json.body.final.sebr }},\n     \"num_bostezos\": {{ $json.body.final.num_bostezos }},\n     \"tiempo_cierre\": {{ $json.body.final.tiempo_cierre }},\n     \"velocidad_ocular\": {{ $json.body.final.velocidad_ocular }},\n     \"nivel_subjetivo\": {{ $json.body.final.nivel_subjetivo }}\n   }\n}\n\n---\n**FORMATO DE SALIDA JSON REQUERIDO (STRICTO):**\nGenera **únicamente** el siguiente objeto JSON. El modelo debe **rellenar todos los valores** con el análisis y diagnóstico solicitado, sin dejar ninguna propiedad como `\"string\"`.\n\n```json\n{\n  \"diagnostico_general\": \"string (Resumen de la progresión y conclusión sobre la evolución de la fatiga: si mejoró, empeoró o se mantuvo en general).\",\n  \"evaluacion_parametros\": {\n    \"perclos\": {\n      \"valor_inicial\": \"{{ $json.body.inicial.perclos }}\",\n      \"valor_final\": \"{{ $json.body.final.perclos }}\",\n      \"interpretacion\": \"string (Análisis comparativo del cambio de PERCLOS y su significado clínico).\",\n      \"recomendacion\": \"string (Recomendación específica basada en la progresión de PERCLOS).\"\n    },\n    \"sebr\": {\n      \"valor_inicial\": \"{{ $json.body.inicial.sebr }}\",\n      \"valor_final\": \"{{ $json.body.final.sebr }}\",\n      \"interpretacion\": \"string (Análisis comparativo del cambio de SEBR y su significado clínico).\",\n      \"recomendacion\": \"string (Recomendación específica basada en la progresión de SEBR).\"\n    },\n    \"num_bostezos\": {\n      \"valor_inicial\": \"{{ $json.body.inicial.num_bostezos }}\",\n      \"valor_final\": \"{{ $json.body.final.num_bostezos }}\",\n      \"interpretacion\": \"string (Análisis comparativo del cambio en el número de bostezos y su significado clínico).\",\n      \"recomendacion\": \"string (Recomendación específica basada en la progresión de bostezos).\"\n    },\n    \"tiempo_cierre\": {\n      \"valor_inicial\": \"{{ $json.body.inicial.tiempo_cierre }}\",\n      \"valor_final\": \"{{ $json.body.final.tiempo_cierre }}\",\n      \"interpretacion\": \"string (Análisis comparativo del cambio en el tiempo de cierre y su significado clínico).\",\n      \"recomendacion\": \"string (Recomendación específica basada en la progresión del tiempo de cierre).\"\n    },\n    \"velocidad_ocular\": {\n      \"valor_inicial\": \"{{ $json.body.inicial.velocidad_ocular }}\",\n      \"valor_final\": \"{{ $json.body.final.velocidad_ocular }}\",\n      \"interpretacion\": \"string (Análisis comparativo del cambio en la velocidad ocular y su significado clínico).\",\n      \"recomendacion\": \"string (Recomendación específica basada en la progresión de la velocidad ocular).\"\n    },\n    \"nivel_subjetivo\": {\n      \"valor_inicial\": \"{{ $json.body.inicial.nivel_subjetivo }}\",\n      \"valor_final\": \"{{ $json.body.final.nivel_subjetivo }}\",\n      \"interpretacion\": \"string (Análisis comparativo del cambio en el nivel subjetivo y si correlaciona con los datos objetivos).\",\n      \"recomendacion\": \"string (Recomendación específica basada en la progresión del nivel subjetivo).\"\n    }\n  },\n  \"recomendaciones_generales\": [\n    \"string (Recomendación general 1 para mitigar la fatiga y mejorar la higiene visual).\",\n    \"string (Recomendación general 2 para mitigar la fatiga y mejorar la higiene visual).\",\n    \"string (Recomendación general 3 para mitigar la fatiga y mejorar la higiene visual).\"\n  ],\n  \"severidad_fatiga_final\": \"string (Severidad de la fatiga después de la sesión: Leve, Moderada, Alta, Severa).\"\n}"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        -144,
+        -432
+      ],
+      "id": "8e0dcbc6-0b28-4d72-805b-020d16a7389c",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": null
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        576,
+        -288
+      ],
+      "id": "19657785-fd46-4e82-8a38-d4739996ba91",
+      "name": "Respond to Webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Este nodo espera un único ítem que contiene la respuesta de texto de la IA\ntry {\n    // 1. Obtener la salida de texto completa del nodo de IA\n    const rawOutput = $input.all()[0].json.output;\n\n    // 2. Usar una expresión regular para encontrar el bloque de texto que empieza con '{' y termina con '}'\n    // La bandera 's' (dotAll) asegura que coincida con saltos de línea dentro del JSON.\n    const jsonMatch = rawOutput.match(/({[\\s\\S]*})/s);\n\n    // 3. Verificar si se encontró un bloque JSON\n    if (!jsonMatch || jsonMatch.length < 2) {\n        // Si no se encuentra un JSON, lanzar un error claro.\n        throw new Error(\"No se encontró un objeto JSON válido en la respuesta de la IA. La respuesta fue: \" + rawOutput);\n    }\n\n    // El JSON extraído es el primer grupo capturado por la expresión regular\n    const extractedJsonString = jsonMatch[1];\n\n    // 4. Intentar parsear la cadena extraída\n    const parsedJson = JSON.parse(extractedJsonString);\n\n    // 5. Devolver el objeto JSON parseado como un ítem de n8n\n    return [{\n        json: parsedJson\n    }];\n\n} catch (e) {\n    // Manejo centralizado de errores.\n    // Usamos el template literal (`) correctamente para interpolar variables en el mensaje de error.\n    throw new Error(`Fallo en el procesamiento: ${e.message}`);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        208,
+        -432
+      ],
+      "id": "f71dbee6-0b02-4ebb-9082-b81d1ac16b48",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        -128
+      ],
+      "id": "3ef2e321-16cf-4d8e-9243-dfa648ad6b77",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "u1z2uIMm54GbJB8b",
+          "name": "Google Gemini(PaLM) Api account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "13f577ac-c728-41c1-8639-0620f8e6c7db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f521c6107c90395f632cbd6b03c0e8fb25bfb3ce690a631ffedbfc7fb3e1c4f1"
+  },
+  "id": "Dpvmsek7utRK1ePr",
+  "tags": []
+}

@@ -316,7 +316,7 @@ if(startBtn) startBtn.addEventListener('click', startCamera);
 if(stopBtn) stopBtn.addEventListener('click', stopCamera);
 
 // ==========================================
-// 6. GUARDADO DE DATOS Y MODALES
+// 6. GUARDADO DE DATOS Y MODALES (MODIFICADO)
 // ==========================================
 
 function mostrarModalSubjetivo() {
@@ -328,76 +328,73 @@ window.guardarYContinuar = async function() {
     const kssValue = kssSelect ? kssSelect.value : "1";
     
     // --- CÁLCULO DE MÉTRICAS DE FATIGA ---
-    const SEBR = blinkCounter; // Spontaneous Eye Blink Rate (blinks/min)
-    const PERCLOS = measureFramesTotal > 0 ? (measureFramesClosed / measureFramesTotal) * 100 : 0; // % Tiempo ojos cerrados
-    const PctIncompletos = blinkCounter > 0 ? (incompleteBlinks / blinkCounter) * 100 : 0;
-    const avgVelocity = frameCount > 0 ? (totalIrisDistance / frameCount) * 100 : 0; // Unidad arbitraria de movimiento
+    const SEBR = blinkCounter;
+    const PERCLOS = measureFramesTotal > 0 
+        ? (measureFramesClosed / measureFramesTotal) * 100 
+        : 0;
+    const PctIncompletos = blinkCounter > 0 
+        ? (incompleteBlinks / blinkCounter) * 100 
+        : 0;
+    const avgVelocity = frameCount > 0 
+        ? (totalIrisDistance / frameCount) * 100 
+        : 0;
 
     // --- ALGORITMO SIMPLE DE DIAGNÓSTICO ---
     let esFatiga = false;
-    let razones = [];
+    if (SEBR <= 8) esFatiga = true;
+    if (PERCLOS >= 8) esFatiga = true;
+    if (PctIncompletos >= 40) esFatiga = true;
+    if (yawnCounter >= 2) esFatiga = true;
 
-    // Criterios de Fatiga (Basados en literatura CVS/Fatiga)
-    if (SEBR <= 8) { esFatiga = true; razones.push("Baja frecuencia de parpadeo (SEBR)"); }
-    if (PERCLOS >= 8) { esFatiga = true; razones.push("Cierre ocular prolongado (PERCLOS)"); }
-    if (PctIncompletos >= 40) { esFatiga = true; razones.push("Parpadeos incompletos excesivos"); }
-    if (yawnCounter >= 2) { esFatiga = true; razones.push("Bostezos frecuentes"); }
-    if (parseInt(kssValue) >= 7) razones.push("Fatiga subjetiva alta");
+    // --- PREPARAR PAYLOAD ---
+    const storedUser = JSON.parse(localStorage.getItem('usuario'));
+    if (!storedUser) {
+        alert("Debes iniciar sesión antes de realizar la medición.");
+        window.location.href = "/templates/login.html";
+        return;
+    }
 
-// --- PREPARAR PAYLOAD ---
-// Obtener ID usuario desde localStorage (login usa localStorage)
-const storedUser = JSON.parse(localStorage.getItem('usuario'));
-
-if (!storedUser) {
-    alert("Debes iniciar sesión antes de realizar la medición.");
-    window.location.href = "/templates/login.html";
-    return;
-}
-
-const payload = {
-    usuario_id: storedUser.id,
-    tipo_medicion: TIPO_ACTUAL, // 'inicial' o 'final'
-    sebr: SEBR,
-    perclos: parseFloat(PERCLOS.toFixed(2)),
-    pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
-    tiempo_cierre: parseFloat(accumulatedClosureTime.toFixed(2)),
-    num_bostezos: yawnCounter,
-    velocidad_ocular: parseFloat(avgVelocity.toFixed(2)),
-    nivel_subjetivo: parseInt(kssValue),
-    es_fatiga: esFatiga
-};
-
+    const payload = {
+        usuario_id: storedUser.id,
+        tipo_medicion: TIPO_ACTUAL,
+        sebr: SEBR,
+        perclos: parseFloat(PERCLOS.toFixed(2)),
+        pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
+        tiempo_cierre: parseFloat(accumulatedClosureTime.toFixed(2)),
+        num_bostezos: yawnCounter,
+        velocidad_ocular: parseFloat(avgVelocity.toFixed(2)),
+        nivel_subjetivo: parseInt(kssValue),
+        es_fatiga: esFatiga
+    };
 
     console.log("Enviando datos:", payload);
+    document.getElementById('subjectiveModal').style.display = 'none';
 
     try {
-        // Enviar a tu Backend (Python/Flask)
         const response = await fetch('http://localhost:8000/save-fatigue', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
 
         if (response.ok) {
-            // Ocultar modal KSS y mostrar Resultados
-            document.getElementById('subjectiveModal').style.display = 'none';
+            console.log("Respuesta del servidor recibida con éxito.");
             
-            const resultTextEl = document.getElementById('resultText');
-            const resultReasonsEl = document.getElementById('resultReasons');
-            
-            resultTextEl.textContent = esFatiga ? "Diagnóstico: FATIGA DETECTADA" : "Diagnóstico: ESTADO NORMAL";
-            resultTextEl.style.color = esFatiga ? "#e74c3c" : "#27ae60";
-            
-            resultReasonsEl.textContent = razones.length > 0 ? 
-                "Indicadores: " + razones.join(", ") : 
-                "Tus métricas oculares están dentro del rango saludable.";
-            
-            document.getElementById('resultModal').style.display = 'flex';
+            if (TIPO_ACTUAL === 'final') {
+                // Medición FINAL -> Mostrar alerta y redirigir al panel
+                alert("¡Análisis final completado! Serás redirigido al panel de usuario para ver el informe completo.");
+                window.location.href = '/templates/usuario/index.html';
+            } else {
+                // Medición INICIAL -> Redirigir a la primera actividad
+                window.location.href = 'instruccion1.html';
+            }
         } else {
-            alert("Error al guardar en el servidor. Revisa que el backend esté corriendo.");
+            const err = await response.json();
+            console.error("Error del servidor:", err);
+            alert("Error al guardar en el servidor: " + (err.detail || "Error desconocido"));
         }
     } catch (e) {
-        console.error(e);
+        console.error("Error de conexión:", e);
         alert("No se pudo conectar con el servidor (localhost:8000).");
     }
 }
