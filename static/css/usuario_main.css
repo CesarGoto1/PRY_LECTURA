@@ -1,0 +1,603 @@
+/* 
+Estilos compartidos para las páginas de usuario (instrucciones y actividades)
+*/
+
+/* 1. CONFIGURACIÓN GENERAL Y DE PANTALLA */
+body {
+    background-color: #A3D9D5; /* Color base de las instrucciones */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    min-height: 100vh;
+    width: 100vw;
+    overflow-x: hidden; /* Prevenir scroll horizontal */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    padding: 20px 0; /* Padding vertical para el modo scroll */
+}
+
+/* Contenedor principal para páginas de instrucciones */
+.main-container {
+    width: 90%;
+    max-width: 900px;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    align-items: center;
+    gap: 20px; /* Espacio entre elementos */
+}
+
+/* Tarjeta contenedora para páginas de actividad */
+.activity-card {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 30px;
+    padding: 20px;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+    position: relative;
+    width: 90%;
+    max-width: 850px;
+    text-align: center;
+}
+
+/* 2. TIPOGRAFÍA Y TÍTULOS */
+h1 {
+    color: #333;
+    font-weight: 600;
+    font-size: 1.8rem;
+    margin: 0;
+}
+
+h2 {
+    color: #3A7D8E;
+    font-weight: 700;
+    margin-bottom: 20px;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px;
+    margin-bottom: 5px;
+}
+
+.section-bar {
+    width: 4px;
+    height: 20px;
+    background-color: #3A7D8E;
+    margin-right: 8px;
+    border-radius: 2px;
+}
+
+.section-title {
+    font-weight: bold;
+    color: #000;
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* 3. ELEMENTOS DE INSTRUCCIONES */
+.svg-container {
+    background-color: rgba(255,255,255,0.4);
+    padding: 10px;
+    border-radius: 15px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-height: 25vh;
+}
+
+svg {
+    max-height: 100%;
+    width: auto;
+    max-width: 100%;
+}
+
+.instruction-card {
+    background-color: #FAFAF7;
+    border-radius: 15px;
+    padding: 15px 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    text-align: center;
+    font-size: 0.95rem;
+    color: #333;
+    line-height: 1.4;
+    border: none;
+    width: 100%;
+}
+
+.tips-wrapper {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.tip-card {
+    background-color: #FAFAF7;
+    border-radius: 15px;
+    padding: 10px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border: none;
+    transition: transform 0.2s;
+}
+
+.tip-card:hover { transform: translateY(-3px); }
+
+.tip-icon {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+.tip-text {
+    color: #333;
+    font-weight: 500;
+    font-size: 0.85rem;
+    line-height: 1.2;
+}
+
+/* 4. ELEMENTOS DE ACTIVIDADES (GENÉRICOS ACTIVIDAD 1) */
+.canvas-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+canvas {
+    background-color: #FAFAF7;
+    border-radius: 20px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+    max-width: 100%;
+    height: auto;
+}
+
+.start-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.6);
+    border-radius: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    transition: opacity 0.5s ease;
+}
+
+.progress-wrapper {
+    width: 80%;
+    margin: 0 auto;
+    display: none; /* Oculto al inicio */
+}
+
+.progress {
+    height: 25px;
+    border-radius: 15px;
+    background-color: #e9ecef;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-bar {
+    background-color: #3A7D8E;
+    transition: width 1s linear;
+}
+
+.timer-text {
+    font-size: 1.2rem;
+    color: #555;
+    margin-top: 10px;
+    font-weight: 600;
+}
+
+.start-marker {
+    position: absolute;
+    top: 35%; 
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #e74c3c;
+    font-weight: bold;
+    font-size: 0.9rem;
+    z-index: 1;
+    pointer-events: none; /* Click through */
+}
+
+/* 5. BOTONES */
+.btn-start { /* Botón de instrucciones */
+    background-color: #4A8B95;
+    color: white;
+    padding: 10px 50px;
+    font-size: 1.1rem;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    transition: background 0.3s;
+    margin-top: 5px;
+}
+
+.btn-start:hover {
+    background-color: #366b75;
+    color: white;
+}
+
+.btn-start-big { /* Botón de actividades */
+    background-color: #3A7D8E;
+    color: white;
+    font-size: 1.5rem;
+    padding: 15px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 15px rgba(58, 125, 142, 0.3);
+    transition: transform 0.2s, background-color 0.2s;
+    font-weight: bold;
+}
+
+.btn-start-big:hover {
+    transform: scale(1.05);
+    background-color: #2e6370;
+}
+
+#finishBtn {
+    display: none;
+    background-color: #e74c3c;
+    color: white;
+    font-size: 1.3rem;
+    padding: 12px 35px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 15px rgba(231, 76, 60, 0.3);
+    margin-top: 20px;
+    animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+#finishBtn:hover {
+    background-color: #c0392b;
+}
+
+@keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+
+/* 6. MEDIA QUERIES */
+@media (max-width: 768px) {
+    body {
+        height: auto;
+        overflow-y: auto; /* Permitir scroll en móviles */
+    }
+    .main-container {
+        gap: 20px;
+    }
+    .tips-wrapper {
+        flex-direction: column;
+    }
+    .svg-container {
+        max-height: none;
+    }
+}
+
+/* STYLES FOR ACTIVIDAD 2 */
+#page-actividad2 .activity-card {
+    background-color: rgba(255, 255, 255, 0.98);
+    border-radius: 35px;
+    padding: 30px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    width: 90%;
+    max-width: 750px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#page-actividad2 h2 {
+    color: #3A7D8E;
+    font-weight: 700;
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+#page-actividad2 .animation-stage {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background-color: #F4FBF9;
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: inset 0 0 15px rgba(58, 125, 142, 0.05);
+}
+
+#page-actividad2 .start-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(2px);
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 20;
+    transition: opacity 0.4s ease;
+}
+
+#page-actividad2 .btn-start-big {
+    background-color: #3A7D8E;
+    color: white;
+    font-size: 1.4rem;
+    padding: 12px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 20px rgba(58, 125, 142, 0.4);
+    transition: transform 0.2s;
+    font-weight: 600;
+}
+#page-actividad2 .btn-start-big:hover { transform: scale(1.05); }
+
+#page-actividad2 .guide-dot {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background-color: #cbd5e1;
+    border-radius: 50%;
+}
+#page-actividad2 .g-left { left: 15%; }
+#page-actividad2 .g-right { right: 15%; }
+
+#page-actividad2 .focus-circle {
+    width: 100px;
+    height: 100px;
+    background-color: #3A7D8E;
+    border-radius: 50%;
+    box-shadow: 0 10px 30px rgba(58, 125, 142, 0.3);
+    z-index: 5;
+    transform: scale(1);
+}
+
+@keyframes breatheEffect {
+    0% { transform: scale(1.8); background-color: #3A7D8E; }
+    50% { transform: scale(0.4); background-color: #2a5d6b; }
+    100% { transform: scale(1.8); background-color: #3A7D8E; }
+}
+
+#page-actividad2 .animating {
+    animation: breatheEffect 8s infinite ease-in-out;
+}
+
+#page-actividad2 .instruction-container {
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#page-actividad2 .instruction-text {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #4A8B95;
+    transition: opacity 0.5s;
+    opacity: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+}
+
+#page-actividad2 .progress-wrapper {
+    width: 90%;
+    margin: 0 auto;
+    display: none;
+}
+
+#page-actividad2 .progress {
+    height: 25px;
+    border-radius: 15px;
+    background-color: #e9ecef;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+#page-actividad2 .progress-bar {
+    background-color: #3A7D8E;
+    transition: width 1s linear;
+}
+
+#page-actividad2 .timer-text {
+    font-size: 1.2rem;
+    color: #555;
+    margin-top: 10px;
+    font-weight: 600;
+}
+
+#page-actividad2 #finishBtn {
+    display: none;
+    background-color: #e74c3c;
+    color: white;
+    font-size: 1.2rem;
+    padding: 10px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 20px rgba(231, 76, 60, 0.3);
+    margin: 0 auto;
+    animation: popIn 0.5s;
+}
+#page-actividad2 #finishBtn:hover { background-color: #c0392b; }
+
+/* STYLES FOR ACTIVIDAD 3 */
+#page-actividad3 .activity-card {
+    background-color: rgba(255, 255, 255, 0.98);
+    border-radius: 35px;
+    padding: 30px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    width: 90%;
+    max-width: 750px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#page-actividad3 h2 {
+    color: #3A7D8E;
+    font-weight: 700;
+    margin: 0;
+    font-size: 1.8rem;
+}
+
+#page-actividad3 .animation-stage {
+    position: relative;
+    width: 100%;
+    height: 300px;
+    background-color: #F4FBF9;
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    box-shadow: inset 0 0 15px rgba(58, 125, 142, 0.05);
+}
+
+#page-actividad3 .start-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(4px);
+    border-radius: 25px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    z-index: 20;
+    transition: opacity 0.4s ease;
+}
+
+#page-actividad3 .btn-start-big {
+    background-color: #3A7D8E;
+    color: white;
+    font-size: 1.4rem;
+    padding: 12px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 20px rgba(58, 125, 142, 0.4);
+    transition: transform 0.2s;
+    font-weight: 600;
+    cursor: pointer;
+}
+#page-actividad3 .btn-start-big:hover { transform: scale(1.05); }
+
+#page-actividad3 .focus-circle {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    box-shadow: 0 10px 30px rgba(58, 125, 142, 0.3);
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: white;
+    transition: all 0.5s ease;
+}
+
+#page-actividad3 .state-open {
+    background-color: #3A7D8E;
+    transform: scale(1);
+}
+  
+#page-actividad3 .state-close {
+    background-color: #2a5d6b;
+    transform: scale(0.6);
+}
+
+#page-actividad3 .state-squeeze {
+    background-color: #E74C3C;
+    transform: scale(0.5);
+    animation: shake 0.5s infinite;
+}
+
+#page-actividad3 .state-finish {
+    background-color: #27ae60;
+    transform: scale(1.2);
+}
+
+@keyframes shake {
+    0% { transform: scale(0.5) rotate(0deg); }
+    25% { transform: scale(0.5) rotate(2deg); }
+    75% { transform: scale(0.5) rotate(-2deg); }
+    100% { transform: scale(0.5) rotate(0deg); }
+}
+
+#page-actividad3 .instruction-container {
+    height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+#page-actividad3 .instruction-text {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #4A8B95;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0;
+    transition: color 0.3s;
+}
+  
+#page-actividad3 .sub-text {
+    font-size: 1.1rem;
+    color: #7f8c8d;
+    font-weight: 400;
+}
+
+#page-actividad3 .progress-wrapper {
+    width: 90%;
+    margin: 0 auto;
+    display: none;
+}
+
+#page-actividad3 .progress {
+    height: 25px;
+    border-radius: 15px;
+    background-color: #e9ecef;
+}
+
+#page-actividad3 .progress-bar {
+    background-color: #3A7D8E;
+    transition: width 0.5s ease;
+}
+
+#page-actividad3 .timer-text {
+    font-size: 1.2rem;
+    color: #555;
+    margin-top: 10px;
+    font-weight: 600;
+}
+
+#page-actividad3 #finishBtn {
+    display: none;
+    background-color: #27ae60;
+    color: white;
+    font-size: 1.2rem;
+    padding: 10px 40px;
+    border-radius: 50px;
+    border: none;
+    box-shadow: 0 8px 20px rgba(39, 174, 96, 0.3);
+    margin: 0 auto;
+    animation: popIn 0.5s;
+    cursor: pointer;
+}
+#page-actividad3 #finishBtn:hover { background-color: #219150; }

@@ -226,7 +226,7 @@ async def save_fatigue(data: FatigueResult):
 
             # --- INICIO: LLAMADA A N8N Y GUARDADO DE DIAGNÓSTICO IA ---
             try:
-                n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/visual-fatigue-diagnosis") # URL por defecto para prueba
+                n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "https://cagonzalez12.app.n8n.cloud/webhook/visual-fatigue-diagnosis") # URL por defecto para prueba
                 if n8n_webhook_url:
                     async with httpx.AsyncClient() as client:
                         response = await client.post(n8n_webhook_url, json=data.dict(), timeout=30)
@@ -373,7 +373,7 @@ async def get_or_create_diagnosis(data: DetailRequest):
         log.info(f"Enviando el siguiente payload a n8n: {json.dumps(payload_to_n8n, indent=2)}")
 
         # 4. Llamar al webhook de n8n
-        n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "http://localhost:5678/webhook/visual-fatigue-diagnosis")
+        n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "https://cagonzalez12.app.n8n.cloud/webhook/visual-fatigue-diagnosis")
         if not n8n_webhook_url:
             raise HTTPException(status_code=500, detail="La URL del webhook de N8N no está configurada.")
 
