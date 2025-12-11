@@ -102,8 +102,9 @@
     <button type="button" class="button3" onclick="location.href='index.html'">Volver</button>
   </form>
 
-  <script src="../static/js/config.js"></script>
+  
   <script>
+  const API_BASE_URL = "https://web-production-9255.up.railway.app";
   async function register(){
     const nombre = document.getElementById('nombre').value.trim();
     const apellido = document.getElementById('apellido').value.trim();
