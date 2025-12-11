@@ -2,94 +2,84 @@
 // 1. CONFIGURACIÓN DINÁMICA (INICIAL VS FINAL)
 // ==========================================
 
-// Detectar parámetro en la URL (ej: medicion_fatiga.html?tipo=final)
 const urlParams = new URLSearchParams(window.location.search);
 const tipoParam = urlParams.get('tipo'); 
 const TIPO_ACTUAL = tipoParam === 'final' ? 'final' : 'inicial';
 
-// Referencias DOM para UI dinámica
 const pageTitle = document.getElementById('pageTitle');
 const continueBtn = document.getElementById('continueBtn');
 
-// Aplicar configuración inicial
 if (TIPO_ACTUAL === 'final') {
     if(pageTitle) pageTitle.textContent = "Reconocimiento Final de Fatiga";
     if(continueBtn) {
-        continueBtn.href = "/templates/usuario/index.html"; // Ruta a resultados finales
+        continueBtn.href = "/templates/usuario/index.html";
         continueBtn.textContent = "Ver Informe Final";
     }
 } else {
     if(pageTitle) pageTitle.textContent = "Reconocimiento Inicial de Fatiga";
     if(continueBtn) {
-        continueBtn.href = "instruccion1.html"; // Ruta a la primera actividad
+        continueBtn.href = "instruccion1.html";
         continueBtn.textContent = "Ir a Actividad 1";
     }
 }
 
 console.log(`Sistema configurado en modo: ${TIPO_ACTUAL.toUpperCase()}`);
 
+
 // ==========================================
 // 2. VARIABLES GLOBALES Y REFERENCIAS
 // ==========================================
+
 const videoElement = document.getElementById('video');
 const canvasElement = document.getElementById('output_canvas');
 const canvasCtx = canvasElement.getContext('2d');
 const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
 const statusOverlay = document.getElementById('statusOverlay');
 
-// Elementos de Estadísticas
 const blinkCountEl = document.getElementById('blinkCount');
 const yawnCountEl = document.getElementById('yawnCount');
 const timerEl = document.getElementById('timerCount');
 
-// Estado del Sistema
-let appState = 'IDLE'; // IDLE, CALIBRATING, MEASURING, FINISHED
+let appState = 'IDLE';
 let running = false;
 let camera = null;
 let startTime = 0;
 let lastFrameTime = 0;
 
-// Configuración de Tiempos
-const CALIBRATION_DURATION = 10; // Segundos de calibración
-const MEASUREMENT_DURATION = 60; // Segundos de medición real
+const CALIBRATION_DURATION = 10;
+const MEASUREMENT_DURATION = 60;
 
-// Variables de Calibración
-let calibrationEARs = []; 
-let calibrationMARs = []; 
-let baselineEAR = 0; 
+let calibrationEARs = [];
+let calibrationMARs = [];
+let baselineEAR = 0;
 let baselineMAR = 0;
 
-// Umbrales Dinámicos (se calculan tras calibrar)
 let thresClose = 0.20; 
 let thresOpen = 0.25;
 let thresYawn = 0.50;
 
-// Variables de Medición
-let blinkCounter = 0;         
-let incompleteBlinks = 0;     
-let accumulatedClosureTime = 0; 
+let blinkCounter = 0;
+let incompleteBlinks = 0;
+let accumulatedClosureTime = 0;
 let measureFramesTotal = 0;
 let measureFramesClosed = 0;
 
-// Lógica de Parpadeo
 let isBlinking = false;
-let minEarInBlink = 1.0; 
+let minEarInBlink = 1.0;
 
-// Lógica de Bostezos
 let yawnCounter = 0;
 let isYawning = false;
 let yawnStartTime = 0;
-const MIN_YAWN_TIME = 1.5; // Segundos para considerar bostezo real
+const MIN_YAWN_TIME = 1.5;
 
-// Lógica de Velocidad Ocular (Movimiento del Iris)
 let prevIrisPos = null;
 let totalIrisDistance = 0;
 let frameCount = 0;
-const LEFT_IRIS_CENTER = 468; // Landmark de MediaPipe
+const LEFT_IRIS_CENTER = 468;
+
 
 // ==========================================
-// 3. FUNCIONES MATEMÁTICAS (EAR, MAR, DISTANCIA)
+// 3. FUNCIONES MATEMÁTICAS
 // ==========================================
 
 function distanciaPx(p1, p2, w, h) {
@@ -98,15 +88,12 @@ function distanciaPx(p1, p2, w, h) {
     return Math.hypot(dx, dy);
 }
 
-// Eye Aspect Ratio
 function calcularEAR(lm, w, h) {
-    // Ojo Izquierdo
     const l_v1 = distanciaPx(lm[160], lm[144], w, h);
     const l_v2 = distanciaPx(lm[158], lm[153], w, h);
     const l_h  = distanciaPx(lm[33],  lm[133], w, h);
     const ear_l = (l_v1 + l_v2) / (2.0 * l_h);
 
-    // Ojo Derecho
     const r_v1 = distanciaPx(lm[385], lm[380], w, h);
     const r_v2 = distanciaPx(lm[387], lm[373], w, h);
     const r_h  = distanciaPx(lm[362], lm[263], w, h);
@@ -115,7 +102,6 @@ function calcularEAR(lm, w, h) {
     return (ear_l + ear_r) / 2.0;
 }
 
-// Mouth Aspect Ratio (para bostezos)
 function calcularMAR(lm, w, h) {
     const v1 = distanciaPx(lm[13], lm[14], w, h);
     const v2 = distanciaPx(lm[81], lm[178], w, h);
@@ -125,8 +111,9 @@ function calcularMAR(lm, w, h) {
     return horizontal > 0 ? vertical / horizontal : 0;
 }
 
+
 // ==========================================
-// 4. CONFIGURACIÓN MEDIAPIPE FACE MESH
+// 4. CONFIGURACIÓN MEDIAPIPE
 // ==========================================
 
 const faceMesh = new FaceMesh({
@@ -135,7 +122,7 @@ const faceMesh = new FaceMesh({
 
 faceMesh.setOptions({
     maxNumFaces: 1,
-    refineLandmarks: true, // Importante para iris y detalles de ojos
+    refineLandmarks: true,
     minDetectionConfidence: 0.7,
     minTrackingConfidence: 0.7
 });
@@ -143,7 +130,6 @@ faceMesh.setOptions({
 faceMesh.onResults((results) => {
     if (!running) return;
 
-    // Dibujar video en canvas
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
@@ -157,146 +143,155 @@ faceMesh.onResults((results) => {
         const w = canvasElement.width;
         const h = canvasElement.height;
 
-        // Dibujo opcional (puedes descomentar para ver la malla)
-        // drawConnectors(canvasCtx, lm, FACEMESH_TESSELATION, {color: '#C0C0C030', lineWidth: 1});
-
-        // Cálculos Métricos del Frame Actual
         const currentEAR = calcularEAR(lm, w, h);
         const currentMAR = calcularMAR(lm, w, h);
         const currentIrisPos = { x: lm[LEFT_IRIS_CENTER].x, y: lm[LEFT_IRIS_CENTER].y };
 
-        // --- MÁQUINA DE ESTADOS ---
-        
+
+        // ======================================
+        //          ESTADOS DEL SISTEMA
+        // ======================================
+
         if (appState === 'IDLE') {
             statusOverlay.textContent = "Listo para iniciar";
-            statusOverlay.style.color = "white";
-        
+
         } else if (appState === 'CALIBRATING') {
             const elapsed = now - startTime;
-            statusOverlay.textContent = `CALIBRANDO (${Math.ceil(CALIBRATION_DURATION - elapsed)}s) - Mira al frente naturalmente`;
-            statusOverlay.style.color = "yellow";
-            
-            // Recolectar datos para promedio
+            statusOverlay.textContent = `CALIBRANDO (${Math.ceil(CALIBRATION_DURATION - elapsed)}s) `;
+
             calibrationEARs.push(currentEAR);
-            calibrationMARs.push(currentMAR); 
+            calibrationMARs.push(currentMAR);
 
             if (elapsed >= CALIBRATION_DURATION) {
-                // FIN CALIBRACIÓN: Calcular Promedios
-                const sumEar = calibrationEARs.reduce((a, b) => a + b, 0);
-                baselineEAR = sumEar / calibrationEARs.length;
-                
-                // Definir umbrales personalizados según la anatomía del usuario
-                thresClose = baselineEAR * 0.55; // Cerrado es el 55% del ojo abierto promedio
-                thresOpen = baselineEAR * 0.85;  // Abierto debe recuperar el 85%
-                
-                const sumMar = calibrationMARs.reduce((a, b) => a + b, 0);
-                baselineMAR = sumMar / calibrationMARs.length;
-                thresYawn = Math.max(0.5, baselineMAR + 0.30); // Bostezo es apertura grande
 
-                console.log(`Calibrado: EAR Base=${baselineEAR.toFixed(3)}, Close<${thresClose.toFixed(3)}, Yawn>${thresYawn.toFixed(3)}`);
-                
-                // Cambiar estado a Midiendo
+                baselineEAR = calibrationEARs.reduce((a,b)=>a+b,0) / calibrationEARs.length;
+                baselineMAR = calibrationMARs.reduce((a,b)=>a+b,0) / calibrationMARs.length;
+
+                thresClose = baselineEAR * 0.55;
+                thresOpen  = baselineEAR * 0.85;
+                thresYawn  = Math.max(0.5, baselineMAR + 0.30);
+
                 appState = 'MEASURING';
-                startTime = now; // Reiniciar tiempo para medición
-                
-                // Resetear contadores
-                blinkCounter = 0; incompleteBlinks = 0; yawnCounter = 0;
-                accumulatedClosureTime = 0; measureFramesTotal = 0; measureFramesClosed = 0;
-                totalIrisDistance = 0; frameCount = 0;
+                startTime = now;
+
+                blinkCounter = 0;
+                incompleteBlinks = 0;
+                accumulatedClosureTime = 0;
+
+                measureFramesClosed = 0;
+                measureFramesTotal = 0;
+
+                yawnCounter = 0;
+                totalIrisDistance = 0;
+                frameCount = 0;
             }
 
+
         } else if (appState === 'MEASURING') {
+
             const elapsed = now - startTime;
             const remaining = Math.ceil(MEASUREMENT_DURATION - elapsed);
-            
+
             statusOverlay.textContent = `MIDIENDO... ${remaining}s`;
-            statusOverlay.style.color = "#00ff00"; // Verde
             timerEl.textContent = `${remaining}s`;
 
             measureFramesTotal++;
 
-            // --- A. DETECCIÓN DE PARPADEO ---
+            // -------------------------
+            // DETECCIÓN DE PARPADEO
+            // -------------------------
             if (currentEAR < thresClose) {
-                // Ojo cerrado
                 if (!isBlinking) {
                     isBlinking = true;
                     minEarInBlink = currentEAR;
                 } else {
                     if (currentEAR < minEarInBlink) minEarInBlink = currentEAR;
                 }
+
                 measureFramesClosed++;
                 accumulatedClosureTime += deltaTime;
-            } 
-            else if (currentEAR > thresOpen && isBlinking) {
-                // Fin del parpadeo (Ojo abierto de nuevo)
+
+            } else if (currentEAR > thresOpen && isBlinking) {
+
                 blinkCounter++;
                 blinkCountEl.textContent = blinkCounter;
-                
-                // Verificar si fue incompleto (no cerró suficiente)
-                if (minEarInBlink > (thresClose * 0.7)) { 
+
+                if (minEarInBlink > (thresClose * 0.7)) {
                     incompleteBlinks++;
                 }
+
                 isBlinking = false;
             }
 
-            // --- B. DETECCIÓN DE BOSTEZOS ---
+            // -------------------------
+            // DETECCIÓN DE BOSTEZO
+            // -------------------------
             if (currentMAR > thresYawn) {
                 if (!isYawning) {
                     isYawning = true;
                     yawnStartTime = now;
                 }
+
             } else {
                 if (isYawning) {
-                    const yawnDuration = now - yawnStartTime;
-                    if (yawnDuration > MIN_YAWN_TIME) {
+                    const dur = now - yawnStartTime;
+                    if (dur > MIN_YAWN_TIME) {
                         yawnCounter++;
                         yawnCountEl.textContent = yawnCounter;
                     }
-                    isYawning = false;
                 }
+                isYawning = false;
             }
 
-            // --- C. VELOCIDAD OCULAR (Sacádicos / Fatiga) ---
+            // -------------------------
+            // VELOCIDAD SACÁDICA
+            // -------------------------
             if (prevIrisPos) {
-                const dist = Math.hypot(currentIrisPos.x - prevIrisPos.x, currentIrisPos.y - prevIrisPos.y);
+                const dist = Math.hypot(
+                    currentIrisPos.x - prevIrisPos.x,
+                    currentIrisPos.y - prevIrisPos.y
+                );
                 totalIrisDistance += dist;
                 frameCount++;
             }
             prevIrisPos = currentIrisPos;
 
-            // --- FIN DE LA MEDICIÓN ---
+            // -------------------------
+            // FIN DE LA MEDICIÓN
+            // -------------------------
             if (elapsed >= MEASUREMENT_DURATION) {
                 appState = 'FINISHED';
                 stopCamera();
-                mostrarModalSubjetivo(); // Lanzar popup
+                mostrarModalSubjetivo();
             }
         }
     }
+
     canvasCtx.restore();
 });
 
+
 // ==========================================
-// 5. CONTROL DE CÁMARA Y BOTONES
+// 5. CONTROL DE CÁMARA
 // ==========================================
 
 function startCamera() {
     if (!camera) {
         camera = new Camera(videoElement, {
             onFrame: async () => {
-                await faceMesh.send({image: videoElement});
+                await faceMesh.send({ image: videoElement });
             },
             width: 640,
             height: 480
         });
     }
+
     camera.start().then(() => {
         running = true;
         startBtn.disabled = true;
-        stopBtn.disabled = false;
         appState = 'CALIBRATING';
         startTime = performance.now() / 1000;
-        
-        // Limpiar arrays de calibración
+
         calibrationEARs = [];
         calibrationMARs = [];
     });
@@ -306,17 +301,14 @@ function stopCamera() {
     running = false;
     if (camera) camera.stop();
     startBtn.disabled = false;
-    stopBtn.disabled = true;
     statusOverlay.textContent = "Prueba Finalizada";
-    statusOverlay.style.color = "white";
 }
 
-// Listeners
-if(startBtn) startBtn.addEventListener('click', startCamera);
-if(stopBtn) stopBtn.addEventListener('click', stopCamera);
+if (startBtn) startBtn.addEventListener('click', startCamera);
+
 
 // ==========================================
-// 6. GUARDADO DE DATOS Y MODALES (MODIFICADO)
+// 6. GUARDADO Y ENVÍO DE MÉTRICAS
 // ==========================================
 
 const loaderContainer = document.getElementById('loader-container');
@@ -325,54 +317,55 @@ function mostrarModalSubjetivo() {
     document.getElementById('subjectiveModal').style.display = 'flex';
 }
 
-async function enviarMedicion(payload) {
-    try {
-        const response = await fetch('http://localhost:8000/save-fatigue', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (loaderContainer) loaderContainer.style.display = 'none';
-
-        if (response.ok) {
-            console.log("Respuesta del servidor recibida con éxito.");
-            
-            if (TIPO_ACTUAL === 'final') {
-                window.location.href = '/templates/usuario/index.html';
-            } else {
-                window.location.href = 'instruccion1.html';
-            }
-        } else {
-            const err = await response.json();
-            console.error("Error del servidor:", err);
-            alert("Error al guardar en el servidor: " + (err.detail || "Error desconocido"));
-        }
-    } catch (e) {
-        if (loaderContainer) loaderContainer.style.display = 'none';
-        console.error("Error de conexión:", e);
-        alert("No se pudo conectar con el servidor (localhost:8000).");
-    }
-}
 
 window.guardarYContinuar = async function() {
+
     const kssSelect = document.getElementById('kssSelect');
     const kssValue = kssSelect ? kssSelect.value : "1";
+
+    // ======================================
+    //     CÁLCULO DE MÉTRICAS CRÍTICAS
+    // ======================================
     
-    // --- CÁLCULO DE MÉTRICAS DE FATIGA ---
     const SEBR = blinkCounter;
-    const PERCLOS = measureFramesTotal > 0 ? (measureFramesClosed / measureFramesTotal) * 100 : 0;
-    const PctIncompletos = blinkCounter > 0 ? (incompleteBlinks / blinkCounter) * 100 : 0;
-    const avgVelocity = frameCount > 0 ? (totalIrisDistance / frameCount) * 100 : 0;
+    const PERCLOS = measureFramesTotal > 0 
+        ? (measureFramesClosed / measureFramesTotal) * 100 
+        : 0;
 
-    // --- ALGORITMO SIMPLE DE DIAGNÓSTICO LOCAL (SOLO REFERENCIAL) ---
-    let esFatiga = false;
-    if (SEBR <= 8) esFatiga = true;
-    if (PERCLOS >= 8) esFatiga = true;
-    if (PctIncompletos >= 40) esFatiga = true;
-    if (yawnCounter >= 2) esFatiga = true;
+    const PctIncompletos = blinkCounter > 0 
+        ? (incompleteBlinks / blinkCounter) * 100 
+        : 0;
 
-    // --- PREPARAR PAYLOAD ---
+    const avgVelocity = frameCount > 5 
+        ? parseFloat(((totalIrisDistance / frameCount) * 100).toFixed(4))
+        : 0;
+
+    // ======================================
+    //     DETECCIÓN DE FATIGA REFINADA
+    // ======================================
+
+    let nivelFatiga = 0;
+
+    // → MÉTRICAS PRIMARIAS
+    if (PERCLOS >= 28) nivelFatiga += 3;
+    if (SEBR <= 5) nivelFatiga += 3;
+    if (PctIncompletos >= 20) nivelFatiga += 2;
+
+    // → MÉTRICAS SECUNDARIAS
+    if (yawnCounter >= 1) nivelFatiga += 1;
+    if (avgVelocity < 0.02) nivelFatiga += 1;
+    if (accumulatedClosureTime >= 3) nivelFatiga += 1;
+
+    // → SUBJETIVA (KSS)
+    if (parseInt(kssValue) >= 7) nivelFatiga += 1;
+
+    const es_fatiga = nivelFatiga >= 3;
+
+
+    // ======================================
+    //      PREPARAR Y ENVIAR PAYLOAD
+    // ======================================
+
     const storedUser = JSON.parse(localStorage.getItem('usuario'));
     if (!storedUser) {
         alert("Debes iniciar sesión antes de realizar la medición.");
@@ -388,20 +381,20 @@ window.guardarYContinuar = async function() {
         pct_incompletos: parseFloat(PctIncompletos.toFixed(2)),
         tiempo_cierre: parseFloat(accumulatedClosureTime.toFixed(2)),
         num_bostezos: yawnCounter,
-        velocidad_ocular: parseFloat(avgVelocity.toFixed(2)),
+        velocidad_ocular: avgVelocity,
         nivel_subjetivo: parseInt(kssValue),
-        es_fatiga: esFatiga // El backend recalcula esto, pero lo enviamos como referencia
+        es_fatiga: es_fatiga
     };
 
-    console.log("Enviando datos al backend:", payload);
+    console.log("Payload de medición final:", payload);
+
     document.getElementById('subjectiveModal').style.display = 'none';
     if (loaderContainer) loaderContainer.style.display = 'flex';
 
     try {
-        // Enviar al Backend (Python/Flask) que a su vez contactará a n8n
-        const response = await fetch('http://localhost:8000/save-fatigue', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+        const response = await fetch("http://localhost:8000/save-fatigue", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
 
@@ -410,34 +403,31 @@ window.guardarYContinuar = async function() {
         const result = await response.json();
 
         if (response.ok) {
-            // Ocultar modal KSS y mostrar Resultados del Backend
-            document.getElementById('subjectiveModal').style.display = 'none';
-            
             const resultTextEl = document.getElementById('resultText');
             const resultReasonsEl = document.getElementById('resultReasons');
-            
-            // Usar el diagnóstico personalizado del backend si está disponible
-            if (result.diagnostico_personalizado) {
-                 resultTextEl.textContent = result.diagnostico_personalizado;
-            } else {
-                resultTextEl.textContent = esFatiga ? "Diagnóstico: FATIGA DETECTADA" : "Diagnóstico: ESTADO NORMAL";
-            }
-            resultTextEl.style.color = (result.diagnostico_personalizado && result.diagnostico_personalizado.includes("FATIGA")) || esFatiga ? "#e74c3c" : "#27ae60";
 
-            // Mostrar el diagnóstico detallado de la IA si existe
+            resultTextEl.textContent = es_fatiga
+                ? "Diagnóstico: FATIGA DETECTADA"
+                : "Diagnóstico: ESTADO NORMAL";
+
+            resultTextEl.style.color = es_fatiga ? "#e74c3c" : "#27ae60";
+
             if (result.diagnostico_detallado_ia && result.diagnostico_detallado_ia.detailed_recommendation) {
-                resultReasonsEl.innerHTML = `<strong>Recomendación IA:</strong> ${result.diagnostico_detallado_ia.detailed_recommendation}`;
+                resultReasonsEl.innerHTML =
+                    `<strong>Recomendación IA:</strong> ${result.diagnostico_detallado_ia.detailed_recommendation}`;
             } else {
-                 resultReasonsEl.textContent = "El análisis detallado por IA se mostrará en tu panel principal.";
+                resultReasonsEl.textContent =
+                    "El análisis detallado por IA se mostrará en tu panel principal.";
             }
-            
+
             document.getElementById('resultModal').style.display = 'flex';
+
         } else {
-            alert("Error al guardar en el servidor: " + (result.detail || "Error desconocido."));
+            alert("Error al guardar: " + (result.detail || "Error desconocido"));
         }
+
     } catch (e) {
-        if (loaderContainer) loaderContainer.style.display = 'none';
-        console.error(e);
-        alert("No se pudo conectar con el servidor (localhost:8000). Asegúrate de que el backend esté corriendo.");
+        console.error("Error al enviar medición:", e);
+        alert("No se pudo conectar al servidor (localhost:8000). Verifica el backend.");
     }
-}
+};
