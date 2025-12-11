@@ -1,0 +1,12 @@
+# Ignorar directorios y archivos de backend para que Vercel no intente compilarlos
+backend/
+SQL/
+flujos/
+__pycache__/
+.vscode/
+
+# Ignorar archivos de configuración de otros servicios
+Procfile
+requirements.txt
+*.sql
+*.md
