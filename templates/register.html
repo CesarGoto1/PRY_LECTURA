@@ -102,7 +102,8 @@
     <button type="button" class="button3" onclick="location.href='index.html'">Volver</button>
   </form>
 
-<script>
+  <script src="/static/js/config.js"></script>
+  <script>
   async function register(){
     const nombre = document.getElementById('nombre').value.trim();
     const apellido = document.getElementById('apellido').value.trim();
@@ -134,7 +135,7 @@
     }
 
     try{
-      const resp = await fetch("http://localhost:8000/register", {
+      const resp = await fetch(`${API_BASE_URL}/register`, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ nombre, apellido, correo, contrasena })

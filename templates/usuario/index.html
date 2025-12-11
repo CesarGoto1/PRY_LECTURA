@@ -232,8 +232,9 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="../../static/js/session.js"></script>
-<script src="../../static/js/user.js"></script>
+<script src="/static/js/config.js"></script>
+<script src="/static/js/session.js"></script>
+<script src="/static/js/user.js"></script>
 
 
 <script>
@@ -265,7 +266,7 @@
         document.getElementById('userName').innerText = `${usuario.nombre} ${usuario.apellido}`;
 
         try {
-            const response = await fetch('http://localhost:8000/get-user-history', {
+            const response = await fetch(`${API_BASE_URL}/get-user-history`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ usuario_id: usuario.id })
@@ -355,7 +356,7 @@
 
         // 2. Cargar datos de la sesión (gráficos y métricas)
         try {
-            const response = await fetch('http://localhost:8000/get-session-details', {
+            const response = await fetch(`${API_BASE_URL}/get-session-details`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ sesion_id: sesionId })
@@ -395,7 +396,7 @@
 
             // 3. Solicitar diagnóstico al backend
             try {
-                const iaResponse = await fetch('http://localhost:8000/get-or-create-diagnosis', {
+                const iaResponse = await fetch(`${API_BASE_URL}/get-or-create-diagnosis`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ sesion_id: sesionId })

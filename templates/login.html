@@ -92,7 +92,8 @@
     <a class="link" href="#">¿Olvidaste tu contraseña?</a>
   </form>
 
-<script>
+  <script src="/static/js/config.js"></script>
+  <script>
   async function login(){
     const correo = document.getElementById('correo').value.trim();
     const contrasena = document.getElementById('contrasena').value.trim();
@@ -107,7 +108,7 @@
     }
 
     try{
-      const resp = await fetch("http://localhost:8000/login", {
+      const resp = await fetch(`${API_BASE_URL}/login`, {
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body: JSON.stringify({ correo, contrasena })

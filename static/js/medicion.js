@@ -392,7 +392,7 @@ window.guardarYContinuar = async function() {
     if (loaderContainer) loaderContainer.style.display = 'flex';
 
     try {
-        const response = await fetch("http://localhost:8000/save-fatigue", {
+        const response = await fetch(`${API_BASE_URL}/save-fatigue`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -428,6 +428,6 @@ window.guardarYContinuar = async function() {
 
     } catch (e) {
         console.error("Error al enviar medición:", e);
-        alert("No se pudo conectar al servidor (localhost:8000). Verifica el backend.");
+        alert("No se pudo conectar al servidor. Verifica tu conexión y el estado del servicio.");
     }
 };
