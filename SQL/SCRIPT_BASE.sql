@@ -226,3 +226,4 @@ ALTER TABLE ONLY public.comparaciones
 
 ALTER TABLE ONLY public.diagnosticos_ia
     ADD CONSTRAINT diagnosticos_ia_sesion_id_fkey FOREIGN KEY (sesion_id) REFERENCES public.sesiones(id) ON DELETE CASCADE;
+    

@@ -361,17 +361,11 @@ window.guardarYContinuar = async function() {
     
     // --- CÁLCULO DE MÉTRICAS DE FATIGA ---
     const SEBR = blinkCounter;
-    const PERCLOS = measureFramesTotal > 0 
-        ? (measureFramesClosed / measureFramesTotal) * 100 
-        : 0;
-    const PctIncompletos = blinkCounter > 0 
-        ? (incompleteBlinks / blinkCounter) * 100 
-        : 0;
-    const avgVelocity = frameCount > 0 
-        ? (totalIrisDistance / frameCount) * 100 
-        : 0;
+    const PERCLOS = measureFramesTotal > 0 ? (measureFramesClosed / measureFramesTotal) * 100 : 0;
+    const PctIncompletos = blinkCounter > 0 ? (incompleteBlinks / blinkCounter) * 100 : 0;
+    const avgVelocity = frameCount > 0 ? (totalIrisDistance / frameCount) * 100 : 0;
 
-    // --- ALGORITMO SIMPLE DE DIAGNÓSTICO ---
+    // --- ALGORITMO SIMPLE DE DIAGNÓSTICO LOCAL (SOLO REFERENCIAL) ---
     let esFatiga = false;
     if (SEBR <= 8) esFatiga = true;
     if (PERCLOS >= 8) esFatiga = true;
@@ -396,12 +390,54 @@ window.guardarYContinuar = async function() {
         num_bostezos: yawnCounter,
         velocidad_ocular: parseFloat(avgVelocity.toFixed(2)),
         nivel_subjetivo: parseInt(kssValue),
-        es_fatiga: esFatiga
+        es_fatiga: esFatiga // El backend recalcula esto, pero lo enviamos como referencia
     };
 
-    console.log("Enviando datos:", payload);
+    console.log("Enviando datos al backend:", payload);
     document.getElementById('subjectiveModal').style.display = 'none';
     if (loaderContainer) loaderContainer.style.display = 'flex';
 
-    await enviarMedicion(payload);
+    try {
+        // Enviar al Backend (Python/Flask) que a su vez contactará a n8n
+        const response = await fetch('http://localhost:8000/save-fatigue', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(payload)
+        });
+
+        if (loaderContainer) loaderContainer.style.display = 'none';
+
+        const result = await response.json();
+
+        if (response.ok) {
+            // Ocultar modal KSS y mostrar Resultados del Backend
+            document.getElementById('subjectiveModal').style.display = 'none';
+            
+            const resultTextEl = document.getElementById('resultText');
+            const resultReasonsEl = document.getElementById('resultReasons');
+            
+            // Usar el diagnóstico personalizado del backend si está disponible
+            if (result.diagnostico_personalizado) {
+                 resultTextEl.textContent = result.diagnostico_personalizado;
+            } else {
+                resultTextEl.textContent = esFatiga ? "Diagnóstico: FATIGA DETECTADA" : "Diagnóstico: ESTADO NORMAL";
+            }
+            resultTextEl.style.color = (result.diagnostico_personalizado && result.diagnostico_personalizado.includes("FATIGA")) || esFatiga ? "#e74c3c" : "#27ae60";
+
+            // Mostrar el diagnóstico detallado de la IA si existe
+            if (result.diagnostico_detallado_ia && result.diagnostico_detallado_ia.detailed_recommendation) {
+                resultReasonsEl.innerHTML = `<strong>Recomendación IA:</strong> ${result.diagnostico_detallado_ia.detailed_recommendation}`;
+            } else {
+                 resultReasonsEl.textContent = "El análisis detallado por IA se mostrará en tu panel principal.";
+            }
+            
+            document.getElementById('resultModal').style.display = 'flex';
+        } else {
+            alert("Error al guardar en el servidor: " + (result.detail || "Error desconocido."));
+        }
+    } catch (e) {
+        if (loaderContainer) loaderContainer.style.display = 'none';
+        console.error(e);
+        alert("No se pudo conectar con el servidor (localhost:8000). Asegúrate de que el backend esté corriendo.");
+    }
 }
