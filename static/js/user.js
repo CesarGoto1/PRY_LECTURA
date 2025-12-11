@@ -33,7 +33,7 @@ async function guardarMedicion(tipo, dataFatiga) {
             es_fatiga: dataFatiga.es_fatiga
         };
 
-        const resp = await fetch("http://localhost:8000/save-fatigue", {
+        const resp = await fetch(`${API_BASE_URL}/save-fatigue`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)

@@ -32,7 +32,7 @@ if (!sesionId) {
 // =====================================================
 document.addEventListener("DOMContentLoaded", async () => {
     try {
-        const resp = await fetch("http://localhost:8000/get-session-details", {
+        const resp = await fetch(`${API_BASE_URL}/get-session-details`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sesion_id: sesionId })

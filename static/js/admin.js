@@ -20,7 +20,7 @@ let graficoRadar = null;
 // ========================================================
 document.addEventListener("DOMContentLoaded", async () => {
     try {
-        const resp = await fetch("http://localhost:8000/admin/all-sessions");
+        const resp = await fetch(`${API_BASE_URL}/admin/all-sessions`);
         const data = await resp.json();
 
         if (!data.ok) {
