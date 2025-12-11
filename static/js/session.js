@@ -22,13 +22,13 @@ function protegerRuta(rolRequerido) {
 
     const usuario = JSON.parse(usuarioStr);
 
-    if (rolRequerido === "admin" && usuario.rol !== "admin") {
+    if (rolRequerido === "admin" && usuario.rol !== "Administrador") {
         alert("Acceso denegado.");
         window.location.href = "/templates/usuario/index.html";
         return;
     }
 
-    if (rolRequerido === "usuario" && usuario.rol !== "usuario") {
+    if (rolRequerido === "usuario" && usuario.rol !== "Usuario") {
         alert("Acceso denegado.");
         window.location.href = "/templates/admin/index.html";
         return;
