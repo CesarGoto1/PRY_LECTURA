@@ -89,7 +89,7 @@ def _put_conn_back(conn):
         db_pool.putconn(conn)
 
 # --- ENDPOINTS AUTH ---
-@app.post("/register")
+@app.post("register")
 def register_user(data: Register):
     conn = None
     cur = None
