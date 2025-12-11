@@ -17,9 +17,17 @@ log = logging.getLogger("uvicorn.error")
 app = FastAPI()
 
 # --- CONFIGURACIÓN CORS ---
+# Orígenes permitidos para peticiones
+origins = [
+    "https://pry-lectura.vercel.app",  # URL de la aplicación en Vercel
+    "http://localhost",
+    "http://localhost:5500",        # Live Server de VS Code
+    "http://127.0.0.1:5500",        # Live Server de VS Code
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
