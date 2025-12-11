@@ -58,15 +58,14 @@ class DetailRequest(BaseModel):
 @app.on_event("startup")
 def startup():
     try:
-        db_config = {
-            "host": os.getenv("DB_HOST", "127.0.0.1"),
-            "port": int(os.getenv("DB_PORT", "5432")),
-            "database": os.getenv("DB_NAME", "pry_lectura"),
-            "user": os.getenv("DB_USER", "postgres"),
-            "password": os.getenv("DB_PASS", "123"),
-        }
-        app.state.db_pool = pool.SimpleConnectionPool(1, 10, **db_config)
-        log.info("Conexión a base de datos establecida.")
+        # Usar DATABASE_URL que provee Railway directamente
+        database_url = os.getenv("DATABASE_URL")
+        if not database_url:
+            log.error("DATABASE_URL no está configurada.")
+            raise ValueError("DATABASE_URL no está configurada.")
+            
+        app.state.db_pool = pool.SimpleConnectionPool(1, 10, dsn=database_url)
+        log.info("Conexión a base de datos establecida usando DATABASE_URL.")
     except Exception as e:
         log.exception("Error conectando a PostgreSQL")
         raise e
