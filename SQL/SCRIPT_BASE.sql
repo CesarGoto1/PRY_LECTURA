@@ -154,8 +154,8 @@ SELECT pg_catalog.setval('public.roles_id_seq', 2, true);
 
 -- Usuario inicial: admin@admin.com con el rol de Administrador (id=1)
 -- Se asume que 'password_hashed' es la contraseña hasheada.
-INSERT INTO public.usuarios (id, nombre, apellido, correo, contrasena, rol_id)
-$2b$12$HoFzmTBP.2GpyURE./p7Purt6purt6piNRHhGD.1xtx1bLmeeSb01Ltsk2
+INSERT INTO public.usuarios ( nombre, apellido, correo, contrasena, rol_id)
+VALUES('Admin', 'Principal', 'admin@admin.com', '$2b$12$5ymgdz8lADZMrCAjp68b4eBr8EAt2tVP4U0hzeqrYTQ2cu/h4rSt2', 1);
 SELECT pg_catalog.setval('public.usuarios_id_seq', 1, true);
 
 -- 5. Creación de Función y Trigger
