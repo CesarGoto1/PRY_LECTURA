@@ -215,28 +215,74 @@ async def save_fatigue(data: FatigueResult):
 
             if row_comp:
                 porcentaje_reduccion = float(row_comp['porcentaje_reduccion'])
-                if data.es_fatiga and porcentaje_reduccion > 0:
-                    mensaje_ui = f"Diagnóstico: FATIGA PERSISTENTE (Se redujo en un {porcentaje_reduccion}%)"
-                elif data.es_fatiga and porcentaje_reduccion <= 0:
-                    mensaje_ui = "Diagnóstico: FATIGA DETECTADA (El nivel aumentó o se mantiene)"
-                elif not data.es_fatiga and porcentaje_reduccion > 0:
-                    mensaje_ui = f"Diagnóstico: RECUPERADO (Mejora del {porcentaje_reduccion}%)"
-                else:
-                    mensaje_ui = "Diagnóstico: ESTADO NORMAL"
+                
+                # Lógica de diagnóstico simplificada y corregida
+                if porcentaje_reduccion > 5:
+                    # Hubo una mejora significativa
+                    if data.es_fatiga:
+                        mensaje_ui = f"Diagnóstico: FATIGA REDUCIDA (Mejora del {porcentaje_reduccion}%)"
+                    else:
+                        mensaje_ui = f"Diagnóstico: ESTADO RECUPERADO (Mejora del {porcentaje_reduccion}%)"
+                elif porcentaje_reduccion <= 0:
+                    # Hubo un empeoramiento
+                    mensaje_ui = f"Diagnóstico: FATIGA INCREMENTADA (Empeoramiento del {-porcentaje_reduccion}%)"
+                else: # 0 < porcentaje_reduccion <= 5
+                    # Mejora leve o sin cambios significativos
+                    if data.es_fatiga:
+                        mensaje_ui = "Diagnóstico: FATIGA PERSISTENTE (Sin mejora significativa)"
+                    else:
+                        mensaje_ui = "Diagnóstico: ESTADO NORMAL (Sin cambios significativos)"
 
             # --- INICIO: LLAMADA A N8N Y GUARDADO DE DIAGNÓSTICO IA ---
             try:
-                n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "https://cagonzalez12.app.n8n.cloud/webhook/visual-fatigue-diagnosis") # URL por defecto para prueba
+                n8n_webhook_url = os.getenv("N8N_WEBHOOK_URL", "https://cagonzalez12.app.n8n.cloud/webhook/visual-fatigue-diagnosis")
                 if n8n_webhook_url:
-                    async with httpx.AsyncClient() as client:
-                        response = await client.post(n8n_webhook_url, json=data.dict(), timeout=30)
-                        response.raise_for_status()
-                        diagnostico_ia = response.json()
+                    # Buscar la medición inicial para construir el payload completo
+                    query_inicial = "SELECT parpadeos AS sebr, perclos, tiempo_cierre, num_bostezos, velocidad_ocular, nivel_subjetivo FROM mediciones WHERE sesion_id = %s AND etapa = 'INICIAL'"
+                    cur.execute(query_inicial, (sesion_id,))
+                    initial_data_db = cur.fetchone()
+
+                    if initial_data_db:
+                        # Construir el payload que n8n espera
+                        final_data_payload = {
+                            "perclos": float(data.perclos),
+                            "sebr": float(data.sebr),
+                            "num_bostezos": data.num_bostezos,
+                            "tiempo_cierre": float(data.tiempo_cierre),
+                            "velocidad_ocular": float(data.velocidad_ocular),
+                            "nivel_subjetivo": data.nivel_subjetivo
+                        }
                         
-                        cur.execute(
-                            "INSERT INTO diagnosticos_ia (sesion_id, diagnostico_json) VALUES (%s, %s)",
-                            (sesion_id, json.dumps(diagnostico_ia))
-                        )
+                        initial_data_payload = {
+                            "usuario_id": data.usuario_id,
+                            "perclos": float(initial_data_db['perclos']),
+                            "sebr": float(initial_data_db['sebr']),
+                            "num_bostezos": initial_data_db['num_bostezos'],
+                            "tiempo_cierre": float(initial_data_db['tiempo_cierre']),
+                            "velocidad_ocular": float(initial_data_db['velocidad_ocular']),
+                            "nivel_subjetivo": initial_data_db['nivel_subjetivo']
+                        }
+
+                        payload_to_n8n = {
+                            "inicial": initial_data_payload,
+                            "final": final_data_payload
+                        }
+                        
+                        log.info(f"Enviando payload completo a n8n desde save_fatigue: {json.dumps(payload_to_n8n, indent=2)}")
+                        
+                        async with httpx.AsyncClient() as client:
+                            response = await client.post(n8n_webhook_url, json=payload_to_n8n, timeout=60)
+                            response.raise_for_status()
+                            responseData = response.json()
+                            diagnostico_ia = responseData[0]['json'] if isinstance(responseData, list) and responseData and 'json' in responseData[0] else responseData
+
+                        if diagnostico_ia:
+                            cur.execute(
+                                "INSERT INTO diagnosticos_ia (sesion_id, diagnostico_json) VALUES (%s, %s) ON CONFLICT (sesion_id) DO UPDATE SET diagnostico_json = EXCLUDED.diagnostico_json",
+                                (sesion_id, json.dumps(diagnostico_ia))
+                            )
+                    else:
+                        log.warning(f"No se encontró medición inicial para la sesión {sesion_id}. No se puede llamar a la IA.")
                 else:
                     log.warning("N8N_WEBHOOK_URL no está configurada. Saltando diagnóstico de IA.")
 

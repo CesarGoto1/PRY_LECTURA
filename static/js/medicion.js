@@ -319,8 +319,40 @@ if(stopBtn) stopBtn.addEventListener('click', stopCamera);
 // 6. GUARDADO DE DATOS Y MODALES (MODIFICADO)
 // ==========================================
 
+const loaderContainer = document.getElementById('loader-container');
+
 function mostrarModalSubjetivo() {
     document.getElementById('subjectiveModal').style.display = 'flex';
+}
+
+async function enviarMedicion(payload) {
+    try {
+        const response = await fetch('http://localhost:8000/save-fatigue', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (loaderContainer) loaderContainer.style.display = 'none';
+
+        if (response.ok) {
+            console.log("Respuesta del servidor recibida con éxito.");
+            
+            if (TIPO_ACTUAL === 'final') {
+                window.location.href = '/templates/usuario/index.html';
+            } else {
+                window.location.href = 'instruccion1.html';
+            }
+        } else {
+            const err = await response.json();
+            console.error("Error del servidor:", err);
+            alert("Error al guardar en el servidor: " + (err.detail || "Error desconocido"));
+        }
+    } catch (e) {
+        if (loaderContainer) loaderContainer.style.display = 'none';
+        console.error("Error de conexión:", e);
+        alert("No se pudo conectar con el servidor (localhost:8000).");
+    }
 }
 
 window.guardarYContinuar = async function() {
@@ -369,32 +401,7 @@ window.guardarYContinuar = async function() {
 
     console.log("Enviando datos:", payload);
     document.getElementById('subjectiveModal').style.display = 'none';
+    if (loaderContainer) loaderContainer.style.display = 'flex';
 
-    try {
-        const response = await fetch('http://localhost:8000/save-fatigue', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-
-        if (response.ok) {
-            console.log("Respuesta del servidor recibida con éxito.");
-            
-            if (TIPO_ACTUAL === 'final') {
-                // Medición FINAL -> Mostrar alerta y redirigir al panel
-                alert("¡Análisis final completado! Serás redirigido al panel de usuario para ver el informe completo.");
-                window.location.href = '/templates/usuario/index.html';
-            } else {
-                // Medición INICIAL -> Redirigir a la primera actividad
-                window.location.href = 'instruccion1.html';
-            }
-        } else {
-            const err = await response.json();
-            console.error("Error del servidor:", err);
-            alert("Error al guardar en el servidor: " + (err.detail || "Error desconocido"));
-        }
-    } catch (e) {
-        console.error("Error de conexión:", e);
-        alert("No se pudo conectar con el servidor (localhost:8000).");
-    }
+    await enviarMedicion(payload);
 }
