@@ -1,5 +1,5 @@
 # Ignorar directorios y archivos de backend para que Vercel no intente compilarlos
-backend/
+api/
 SQL/
 flujos/
 __pycache__/
