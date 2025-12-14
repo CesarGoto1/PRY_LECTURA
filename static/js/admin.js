@@ -71,7 +71,7 @@ function llenarTabla(sesiones) {
 //  Acción para ver detalle
 // ========================================================
 function verDetalle(id) {
-    window.location.href = `details.html?sesion=${id}`;
+    window.location.href = `/admin/details?sesion=${id}`;
 }
 
 // ========================================================

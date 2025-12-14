@@ -12,13 +12,13 @@ const continueBtn = document.getElementById('continueBtn');
 if (TIPO_ACTUAL === 'final') {
     if(pageTitle) pageTitle.textContent = "Reconocimiento Final de Fatiga";
     if(continueBtn) {
-        continueBtn.href = "/templates/usuario/index.html";
+        continueBtn.href = "/usuario/index";
         continueBtn.textContent = "Ver Informe Final";
     }
 } else {
     if(pageTitle) pageTitle.textContent = "Reconocimiento Inicial de Fatiga";
     if(continueBtn) {
-        continueBtn.href = "instruccion1.html";
+        continueBtn.href = "/usuario/instruccion1";
         continueBtn.textContent = "Ir a Actividad 1";
     }
 }
@@ -369,7 +369,7 @@ window.guardarYContinuar = async function() {
     const storedUser = JSON.parse(localStorage.getItem('usuario'));
     if (!storedUser) {
         alert("Debes iniciar sesión antes de realizar la medición.");
-        window.location.href = "/templates/login.html";
+        window.location.href = "/";
         return;
     }
 

@@ -96,14 +96,58 @@
 
     <div class="btn">
       <button type="button" class="button1" onclick="register()">Crear cuenta</button>
-      <button type="button" class="button2" onclick="location.href='login.html'">Iniciar sesión</button>
+      <button type="button" class="button2" onclick="location.href='/'">Iniciar sesión</button>
     </div>
 
     
   </form>
 
   <script src="/static/js/config.js"></script>
+  <script>
+    async function register() {
+      const nombre = document.getElementById('nombre').value.trim();
+      const apellido = document.getElementById('apellido').value.trim();
+      const correo = document.getElementById('correo').value.trim();
+      const contrasena = document.getElementById('contrasena').value.trim();
+      const msg = document.getElementById('msg');
+      msg.textContent = "";
+      msg.className = "";
 
+      if (!nombre || !apellido || !correo || !contrasena) {
+        msg.textContent = "Todos los campos son obligatorios.";
+        msg.className = "error";
+        return;
+      }
+
+      try {
+        const resp = await fetch(`${API_BASE_URL}/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nombre, apellido, correo, contrasena })
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          msg.textContent = data.detail || "Error en el registro.";
+          msg.className = "error";
+          return;
+        }
+
+        msg.textContent = "¡Registro exitoso! Redirigiendo...";
+        msg.className = "success";
+
+        setTimeout(() => {
+          location.href = "/"; // Redirigir a la página de login
+        }, 1000);
+
+      } catch (e) {
+        console.error(e);
+        msg.textContent = "Error de conexión con el servidor.";
+        msg.className = "error";
+      }
+    }
+  </script>
 
 </body>
 </html>
