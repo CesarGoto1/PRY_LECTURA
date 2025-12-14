@@ -44,6 +44,49 @@ async def read_root(request: Request):
 async def read_register(request: Request):
     return templates.TemplateResponse("register.html", {"request": request})
 
+# --- Rutas para Admin ---
+@app.get("/admin/index", response_class=HTMLResponse)
+async def admin_index(request: Request):
+    return templates.TemplateResponse("admin/index.html", {"request": request})
+
+@app.get("/admin/details", response_class=HTMLResponse)
+async def admin_details(request: Request):
+    return templates.TemplateResponse("admin/details.html", {"request": request})
+
+# --- Rutas para Usuario ---
+@app.get("/usuario/index", response_class=HTMLResponse)
+async def user_index(request: Request):
+    return templates.TemplateResponse("usuario/index.html", {"request": request})
+
+@app.get("/usuario/medicion_fatiga", response_class=HTMLResponse)
+async def user_medicion_fatiga(request: Request):
+    return templates.TemplateResponse("usuario/medicion_fatiga.html", {"request": request})
+
+@app.get("/usuario/instruccion1", response_class=HTMLResponse)
+async def user_instruccion1(request: Request):
+    return templates.TemplateResponse("usuario/instruccion1.html", {"request": request})
+
+@app.get("/usuario/actividad1", response_class=HTMLResponse)
+async def user_actividad1(request: Request):
+    return templates.TemplateResponse("usuario/actividad1.html", {"request": request})
+
+@app.get("/usuario/instruccion2", response_class=HTMLResponse)
+async def user_instruccion2(request: Request):
+    return templates.TemplateResponse("usuario/instruccion2.html", {"request": request})
+
+@app.get("/usuario/actividad2", response_class=HTMLResponse)
+async def user_actividad2(request: Request):
+    return templates.TemplateResponse("usuario/actividad2.html", {"request": request})
+
+@app.get("/usuario/instruccion3", response_class=HTMLResponse)
+async def user_instruccion3(request: Request):
+    return templates.TemplateResponse("usuario/instruccion3.html", {"request": request})
+
+@app.get("/usuario/actividad3", response_class=HTMLResponse)
+async def user_actividad3(request: Request):
+    return templates.TemplateResponse("usuario/actividad3.html", {"request": request})
+
+
 
 # --- MODELOS DE DATOS ---
 class Login(BaseModel):
