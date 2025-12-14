@@ -26,6 +26,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from fastapi.responses import HTMLResponse
+from fastapi import Request
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/", response_class=HTMLResponse)
+async def read_root(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
+
+@app.get("/register", response_class=HTMLResponse)
+async def read_register(request: Request):
+    return templates.TemplateResponse("register.html", {"request": request})
+
+
 # --- MODELOS DE DATOS ---
 class Login(BaseModel):
     correo: str
@@ -89,7 +104,7 @@ def _put_conn_back(conn):
         db_pool.putconn(conn)
 
 # --- ENDPOINTS AUTH ---
-@app.post("register")
+@app.post("/register")
 def register_user(data: Register):
     conn = None
     cur = None
