@@ -59,7 +59,7 @@ class DetailRequest(BaseModel):
 @app.on_event("startup")
 def startup():
     try:
-        # Usar DATABASE_URL que provee Railway directamente
+        # Usar la variable de entorno DATABASE_URL para la conexión
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
             log.error("DATABASE_URL no está configurada.")
